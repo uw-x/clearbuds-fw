@@ -1,0 +1,10 @@
+**/.DS_Store
+pca10056/s140/armgcc
+pca10056/s140/config
+pca10056/s140/arm4/*
+pca10056/s140/arm5_no_packs/*
+pca10056/s140/iar/*
+pca10056/s140/ses/*
+SDK
+.vscode
+_build
