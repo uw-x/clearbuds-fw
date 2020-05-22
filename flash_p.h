@@ -1,5 +1,9 @@
 #define FLASH_ID      0xC22817
 
+#define QSPI_STD_CMD_WRSR   0x01
+#define QSPI_STD_CMD_RSTEN  0x66
+#define QSPI_STD_CMD_RST    0x99
+
 #define CMD_READ      0x03  // x1 Normal Read Data Byte
 #define CMD_FREAD     0x0B  // x1 Fast Read Data Byte
 #define CMD_2READ     0xBB  // x2 2READ

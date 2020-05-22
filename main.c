@@ -49,163 +49,171 @@
 #include "flash.h"
 #include "main.h"
 
+accelGenericInterrupt_t accelInterrupt1 = {
+  .pin = ACCEL_INT1,
+  .source = ACCEL_INT_SOURCE_GENERIC1,
+  .xEnable = false,
+  .yEnable = false,
+  .zEnable = true,
+  .activity = true,
+  .combSelectIsAnd = false,
+  .threshold = 0x2,
+  .duration = 0x7,
+};
+
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
-    app_error_handler(DEAD_BEEF, line_num, p_file_name);
+  app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
 void sleep_mode_enter(void)
 {
-    ret_code_t err_code;
+  ret_code_t err_code;
 
-    err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+  err_code = bsp_indication_set(BSP_INDICATE_IDLE);
+  APP_ERROR_CHECK(err_code);
 
-    // Prepare wakeup buttons.
-    err_code = bsp_btn_ble_sleep_mode_prepare();
-    APP_ERROR_CHECK(err_code);
+  // Prepare wakeup buttons.
+  err_code = bsp_btn_ble_sleep_mode_prepare();
+  APP_ERROR_CHECK(err_code);
 
-    // Go to system-off mode (this function will not return; wakeup will cause a reset).
-    err_code = sd_power_system_off();
-    APP_ERROR_CHECK(err_code);
+  // Go to system-off mode (this function will not return; wakeup will cause a reset).
+  err_code = sd_power_system_off();
+  APP_ERROR_CHECK(err_code);
 }
 
 static void bsp_event_handler(bsp_event_t event)
 {
-    ret_code_t err_code;
+  ret_code_t err_code;
 
-    switch (event)
-    {
-        case BSP_EVENT_SLEEP:
-            sleep_mode_enter();
-            break; // BSP_EVENT_SLEEP
+  switch (event)
+  {
+    case BSP_EVENT_SLEEP:
+      sleep_mode_enter();
+      break; // BSP_EVENT_SLEEP
 
-        case BSP_EVENT_DISCONNECT:
-            err_code = sd_ble_gap_disconnect(m_conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            if (err_code != NRF_ERROR_INVALID_STATE)
-            {
-                APP_ERROR_CHECK(err_code);
-            }
-            break; // BSP_EVENT_DISCONNECT
+    case BSP_EVENT_DISCONNECT:
+      err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+      if (err_code != NRF_ERROR_INVALID_STATE)
+      {
+        APP_ERROR_CHECK(err_code);
+      }
+      break; // BSP_EVENT_DISCONNECT
 
-        case BSP_EVENT_WHITELIST_OFF:
-            if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
-            {
-                err_code = ble_advertising_restart_without_whitelist(&m_advertising);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
-            }
-            break; // BSP_EVENT_KEY_0
+    case BSP_EVENT_WHITELIST_OFF:
+      if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
+      {
+        err_code = ble_advertising_restart_without_whitelist(&m_advertising);
+        if (err_code != NRF_ERROR_INVALID_STATE)
+        {
+          APP_ERROR_CHECK(err_code);
+        }
+      }
+      break; // BSP_EVENT_KEY_0
 
-        default:
-            break;
-    }
+    default:
+      break;
+  }
 }
 
 static void buttons_leds_init(bool * p_erase_bonds)
 {
-    ret_code_t err_code;
-    bsp_event_t startup_event;
+  ret_code_t err_code;
+  bsp_event_t startup_event;
 
-    err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, bsp_event_handler);
-    APP_ERROR_CHECK(err_code);
+  err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, bsp_event_handler);
+  APP_ERROR_CHECK(err_code);
 
-    err_code = bsp_btn_ble_init(NULL, &startup_event);
-    APP_ERROR_CHECK(err_code);
+  err_code = bsp_btn_ble_init(NULL, &startup_event);
+  APP_ERROR_CHECK(err_code);
 
-    *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
+  *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
 static void logInit(void)
 {
-    ret_code_t err_code = NRF_LOG_INIT(NULL);
-    APP_ERROR_CHECK(err_code);
+  ret_code_t err_code = NRF_LOG_INIT(NULL);
+  APP_ERROR_CHECK(err_code);
 
-    NRF_LOG_DEFAULT_BACKENDS_INIT();
+  NRF_LOG_DEFAULT_BACKENDS_INIT();
 }
 
 static void powerInit(void)
 {
-    ret_code_t err_code;
-    err_code = nrf_pwr_mgmt_init();
-    APP_ERROR_CHECK(err_code);
+  ret_code_t err_code;
+  err_code = nrf_pwr_mgmt_init();
+  APP_ERROR_CHECK(err_code);
 }
 
 static void idle(void)
 {
-    if (NRF_LOG_PROCESS() == false && eventQueueIsEmpty()) {
-        nrf_pwr_mgmt_run();
-    }
+  if (NRF_LOG_PROCESS() == false && eventQueueIsEmpty()) {
+    nrf_pwr_mgmt_run();
+  }
 }
 
 static void shioInit(void)
 {
-    ret_code_t ret;
-    bool erase_bonds;
+  ret_code_t ret;
+  bool erase_bonds;
 
-    logInit();
-    NRF_LOG_INFO("shio booting");
-    timersInit();
-    gpioInit();
-    eventQueueInit();
-    // audioInit();
-    buttons_leds_init(&erase_bonds);
-    spiInit();
-    flashInit();
-    accelInit();
-    accelGenericInterrupt_t accelInterrupt1 = {
-        .pin = ACCEL_INT1,
-        .source = ACCEL_INT_SOURCE_GENERIC1,
-        .xEnable = false,
-        .yEnable = false,
-        .zEnable = true,
-        .activity = true,
-        .combSelectIsAnd = false,
-        .threshold = 0x2,
-        .duration = 0x7,
-    };
+  logInit();
+  NRF_LOG_RAW_INFO("[shio] booting...\n");
+  timersInit();
+  gpioInit();
+  eventQueueInit();
+  buttons_leds_init(&erase_bonds);
 
-    accelGenericInterruptEnable(&accelInterrupt1);
+  flashInit();
+  // audioInit();
+  spiInit();
+  accelInit();
+  accelGenericInterruptEnable(&accelInterrupt1);
 
-    ret = nrf_drv_clock_init();
-    APP_ERROR_CHECK(ret);
+  ret = nrf_drv_clock_init();
+  APP_ERROR_CHECK(ret);
 
-    powerInit();
-    // bleInit();
-    // advertising_start(erase_bonds);
+  powerInit();
+  // bleInit();
+  // advertising_start(erase_bonds);
 
-    NRF_LOG_RAW_INFO("[shio] booted\n");
+  NRF_LOG_RAW_INFO("[shio] booted\n");
 }
 
 static void processQueue(void)
 {
-    if (!eventQueueIsEmpty()) {
-        switch(eventQueueFront()) {
-            case EVENT_ACCEL_MOTION:
-                NRF_LOG_RAW_INFO("%08d | motion\n", systemTimeGetMs());
-                break;
-            case EVENT_ACCEL_STATIC:
-                break;
-            default:
-                NRF_LOG_RAW_INFO("unhandled event");
-                break;
-        }
-
-        eventQueuePop();
+  if (!eventQueueIsEmpty()) {
+    switch(eventQueueFront()) {
+      case EVENT_ACCEL_MOTION:
+        NRF_LOG_RAW_INFO("%08d | motion\n", systemTimeGetMs());
+        break;
+      case EVENT_ACCEL_STATIC:
+        break;
+      default:
+        NRF_LOG_RAW_INFO("unhandled event");
+        break;
     }
+
+    eventQueuePop();
+  }
 }
 
 int main(void)
 {
-    shioInit();
+  shioInit();
 
-    for (;;)
-    {
-        // audioService();
-        // processQueue();
-        idle();
-    }
+  uint8_t testDataRx[200] = { 0x0 };
+
+  flashRead(0, testDataRx, 200);
+
+  for (int i = 190; i < 200; i++) {
+    NRF_LOG_RAW_INFO("%d\n", testDataRx[i]);
+  }
+
+  for (;;)
+  {
+    // audioService();
+    // processQueue();
+    idle();
+  }
 }

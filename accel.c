@@ -13,13 +13,13 @@ accelStatus_t accelStatus;
 static void accelWrite(uint8_t reg, uint8_t data)
 {
   uint8_t bytes[2] = {reg, data};
-  spiTransfer(SPI_BUS_3, bytes, 2);
+  spiTransfer(SPI_BUS, bytes, 2);
 }
 
 static uint8_t accelRead(uint8_t reg)
 {
   uint8_t bytes[3] = {0x80 | reg, 0x0, 0x0};
-  spiTransfer(SPI_BUS_3, bytes, 3);
+  spiTransfer(SPI_BUS, bytes, 3);
   return bytes[2];
 }
 
@@ -120,9 +120,8 @@ void accelInit(void)
     // Normal power mode
     accelWrite(ACC_CONFIG0_REG, ACC_CONFIG0_POWER_MODE_NORMAL);
     accelStatus.bits = accelRead(STATUS_REG);
-    NRF_LOG_RAW_INFO("[accel] powerMode:%d\n", accelStatus.powerMode);
-    NRF_LOG_RAW_INFO("[accel] commandReady:%d\n", accelStatus.commandReady);
-    NRF_LOG_RAW_INFO("[accel] dataReady:%d\n", accelStatus.dataReady);
+    NRF_LOG_RAW_INFO("[accel] powerMode:%d commandReady:%d dataReady:%d\n",\
+      accelStatus.powerMode, accelStatus.commandReady, accelStatus.dataReady);
 
     // Configure interrupts
     gpioInput_t gpioInput = GPIO_INTERRUPT_CONFIG_RISING;

@@ -6,21 +6,24 @@
 #define PDM_CLK_PIN                      NRF_GPIO_PIN_MAP(1,8)
 #define PDM_DATA_PIN                     NRF_GPIO_PIN_MAP(1,9)
 
-// ACCEL SPI
-#define SPI_SCK_PIN                      NRF_GPIO_PIN_MAP(0,4)
-#define SPI_MOSI_PIN                     NRF_GPIO_PIN_MAP(0,26)
-#define SPI_MISO_PIN                     NRF_GPIO_PIN_MAP(0,27)
-#define SPI_CS_PIN                       NRF_GPIO_PIN_MAP(0,28)
-
-// FLASH SPI
-#define FLASH_SCK_PIN                     NRF_GPIO_PIN_MAP(0,19)
-#define FLASH_MOSI_PIN                    NRF_GPIO_PIN_MAP(0,20)
-#define FLASH_MISO_PIN                    NRF_GPIO_PIN_MAP(0,21)
-#define FLASH_CS_PIN                      NRF_GPIO_PIN_MAP(0,17)
+// SPI
+#define SPI_SCK_PIN                    NRF_GPIO_PIN_MAP(0,4)
+#define SPI_MOSI_PIN                   NRF_GPIO_PIN_MAP(0,26)
+#define SPI_MISO_PIN                   NRF_GPIO_PIN_MAP(0,27)
+#define SPI_CS_PIN                     NRF_GPIO_PIN_MAP(0,28)
 
 // ACCEL
 #define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 5)
 #define ACCEL_INT2_PIN                   NRF_GPIO_PIN_MAP(1, 6)
+
+// QSPI
+// These are located in sdk_config.h. They're placed here just for reference.
+// #define NRFX_QSPI_PIN_SCK                NRF_GPIO_PIN_MAP(0, 19)
+// #define NRFX_QSPI_PIN_CSN                NRF_GPIO_PIN_MAP(0, 17)
+// #define NRFX_QSPI_PIN_IO0                NRF_GPIO_PIN_MAP(0, 20)
+// #define NRFX_QSPI_PIN_IO1                NRF_GPIO_PIN_MAP(0, 21)
+// #define NRFX_QSPI_PIN_IO2                NRF_GPIO_PIN_MAP(0, 22)
+// #define NRFX_QSPI_PIN_IO3                NRF_GPIO_PIN_MAP(0, 23)
 
 // Wrapper
 #define GPIO_INTERRUPT_CONFIG_RISING  GPIOTE_CONFIG_IN_SENSE_LOTOHI(true)

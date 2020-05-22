@@ -3,24 +3,82 @@
 #include <string.h>
 #include <stdlib.h>
 #include <nrfx.h>
+#include "boards.h"
+#include "app_util_platform.h"
+#include "app_error.h"
 
 #include "nrf_log.h"
+#include "nrf_drv_qspi.h"
+#include "nrf_delay.h"
+#include "sdk_config.h"
 
 #include "spi.h"
 #include "flash_p.h"
 
-uint32_t flashGetId(void) {
-  uint8_t bytes[4] = {CMD_RDID, 0x0, 0x0, 0x0};
-  spiTransfer(SPI_BUS_1, bytes, 4);
-  return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+static bool transferDone = false;
+
+static void qspiHandler(nrf_drv_qspi_evt_t event, void * p_context)
+{
+  UNUSED_PARAMETER(event);
+  UNUSED_PARAMETER(p_context);
+  transferDone = true;
 }
 
-void flashInit(void)
+void flashErase(uint32_t address)
 {
-  uint32_t flashId = flashGetId();
-  if (flashId == FLASH_ID) {
-    NRF_LOG_RAW_INFO("[flash] initialized\n");
-  } else {
-    NRF_LOG_RAW_INFO("[flash] error initializing, expected %08x actual %08x\n", FLASH_ID, flashId);
-  }
+  transferDone = false;
+  APP_ERROR_CHECK(nrf_drv_qspi_erase(NRF_QSPI_ERASE_LEN_64KB, address));
+  while(!transferDone) { __WFE(); };
+  NRF_LOG_RAW_INFO("[flash] erasing...\n");
+}
+
+void flashWrite(uint32_t address, uint8_t* data, uint16_t length)
+{
+  transferDone = false;
+  APP_ERROR_CHECK(nrf_drv_qspi_write(data, length, address));
+  while(!transferDone) { __WFE(); };
+  NRF_LOG_RAW_INFO("[flash] writing...\n");
+}
+
+void flashRead(uint32_t address, uint8_t* data, uint16_t length)
+{
+  transferDone = false;
+  APP_ERROR_CHECK(nrf_drv_qspi_read(data, length, address));
+  while(!transferDone) { __WFE(); };
+  NRF_LOG_RAW_INFO("[flash] reading...\n");
+}
+
+void flashInit()
+{
+  nrf_drv_qspi_config_t config = NRF_DRV_QSPI_DEFAULT_CONFIG;
+  APP_ERROR_CHECK(nrf_drv_qspi_init(&config, qspiHandler, NULL));
+
+  nrf_qspi_cinstr_conf_t cinstr_cfg = {
+    .opcode    = QSPI_STD_CMD_RSTEN,
+    .length    = NRF_QSPI_CINSTR_LEN_1B,
+    .io2_level = true,
+    .io3_level = true,
+    .wipwait   = true,
+    .wren      = true
+  };
+
+  // Send reset enable
+  APP_ERROR_CHECK(nrf_drv_qspi_cinstr_xfer(&cinstr_cfg, NULL, NULL));
+
+  // Send reset command
+  cinstr_cfg.opcode = QSPI_STD_CMD_RST;
+  APP_ERROR_CHECK(nrf_drv_qspi_cinstr_xfer(&cinstr_cfg, NULL, NULL));
+
+  // Switch to qspi mode
+  uint8_t temporary = 0x40;
+  cinstr_cfg.opcode = QSPI_STD_CMD_WRSR;
+  cinstr_cfg.length = NRF_QSPI_CINSTR_LEN_2B;
+  APP_ERROR_CHECK(nrf_drv_qspi_cinstr_xfer(&cinstr_cfg, &temporary, NULL));
+
+  NRF_LOG_RAW_INFO("[flash] initialized\n");
+}
+
+void flashDeInit(void)
+{
+  nrf_drv_qspi_uninit();
 }
