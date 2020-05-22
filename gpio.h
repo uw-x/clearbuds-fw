@@ -6,11 +6,17 @@
 #define PDM_CLK_PIN                      NRF_GPIO_PIN_MAP(1,8)
 #define PDM_DATA_PIN                     NRF_GPIO_PIN_MAP(1,9)
 
-// SPI NEW
+// ACCEL SPI
 #define SPI_SCK_PIN                      NRF_GPIO_PIN_MAP(0,4)
 #define SPI_MOSI_PIN                     NRF_GPIO_PIN_MAP(0,26)
 #define SPI_MISO_PIN                     NRF_GPIO_PIN_MAP(0,27)
-#define SPI_SS_PIN                       NRF_GPIO_PIN_MAP(0,28)
+#define SPI_CS_PIN                       NRF_GPIO_PIN_MAP(0,28)
+
+// FLASH SPI
+#define FLASH_SCK_PIN                     NRF_GPIO_PIN_MAP(0,19)
+#define FLASH_MOSI_PIN                    NRF_GPIO_PIN_MAP(0,20)
+#define FLASH_MISO_PIN                    NRF_GPIO_PIN_MAP(0,21)
+#define FLASH_CS_PIN                      NRF_GPIO_PIN_MAP(0,17)
 
 // ACCEL
 #define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 5)

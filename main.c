@@ -46,6 +46,7 @@
 #include "gpio.h"
 #include "accel.h"
 #include "spi.h"
+#include "flash.h"
 #include "main.h"
 
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
@@ -150,9 +151,10 @@ static void shioInit(void)
     timersInit();
     gpioInit();
     eventQueueInit();
-    audioInit();
+    // audioInit();
     buttons_leds_init(&erase_bonds);
     spiInit();
+    flashInit();
     accelInit();
     accelGenericInterrupt_t accelInterrupt1 = {
         .pin = ACCEL_INT1,
@@ -202,7 +204,7 @@ int main(void)
 
     for (;;)
     {
-        audioService();
+        // audioService();
         // processQueue();
         idle();
     }

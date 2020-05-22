@@ -13,13 +13,13 @@ accelStatus_t accelStatus;
 static void accelWrite(uint8_t reg, uint8_t data)
 {
   uint8_t bytes[2] = {reg, data};
-  spiTransfer(bytes, 2);
+  spiTransfer(SPI_BUS_3, bytes, 2);
 }
 
 static uint8_t accelRead(uint8_t reg)
 {
   uint8_t bytes[3] = {0x80 | reg, 0x0, 0x0};
-  spiTransfer(bytes, 3);
+  spiTransfer(SPI_BUS_3, bytes, 3);
   return bytes[2];
 }
 
