@@ -3010,7 +3010,7 @@
 // <15=> 32MHz/16
 
 #ifndef NRFX_QSPI_CONFIG_FREQUENCY
-#define NRFX_QSPI_CONFIG_FREQUENCY 15
+#define NRFX_QSPI_CONFIG_FREQUENCY 0
 #endif
 
 // <s> NRFX_QSPI_PIN_SCK - SCK pin value.
@@ -4986,7 +4986,7 @@
 // <15=> 32MHz/16
 
 #ifndef QSPI_CONFIG_FREQUENCY
-#define QSPI_CONFIG_FREQUENCY 1
+#define QSPI_CONFIG_FREQUENCY 0
 #endif
 
 // <s> QSPI_PIN_SCK - SCK pin value.
@@ -7460,7 +7460,7 @@
 // <i> Log data is buffered and can be processed in idle.
 
 #ifndef NRF_LOG_DEFERRED
-#define NRF_LOG_DEFERRED 1
+#define NRF_LOG_DEFERRED 0
 #endif
 
 // <q> NRF_LOG_FILTERS_ENABLED  - Enable dynamic filtering of logs.
@@ -11737,6 +11737,11 @@
 // <134217728=> 1000k
 // <138412032=> 1032k (default)
 // <142606336=> 1067k
+// DIV25: 0x0A000000 -> CLK: 1.280 MHz -> SR: 20000 Hz
+// DIV16: 0x10000000 -> CLK: 2.000 MHz -> SR: 31250 Hz
+// DIV12: 0x15000000 -> CLK: 2.667 MHz -> SR: 41667 Hz
+// DIV10: 0x19000000 -> CLK: 3.200 MHz -> SR: 50000 Hz
+// DIV08: 0x20000000 -> CLK: 4.000 MHz -> SR: 62500 Hz
 
 #ifndef NRFX_PDM_CONFIG_CLOCK_FREQ
 #define NRFX_PDM_CONFIG_CLOCK_FREQ 0x19000000

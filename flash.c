@@ -24,12 +24,20 @@ static void qspiHandler(nrf_drv_qspi_evt_t event, void * p_context)
   transferDone = true;
 }
 
+void flashEraseAll(void)
+{
+  transferDone = false;
+  APP_ERROR_CHECK(nrf_drv_qspi_erase(QSPI_ERASE_LEN_LEN_All, 0));
+  while(!transferDone) { __WFE(); };
+  NRF_LOG_RAW_INFO("[flash] erasing...\n");
+}
+
 void flashErase(uint32_t address)
 {
   transferDone = false;
   APP_ERROR_CHECK(nrf_drv_qspi_erase(NRF_QSPI_ERASE_LEN_64KB, address));
   while(!transferDone) { __WFE(); };
-  NRF_LOG_RAW_INFO("[flash] erasing...\n");
+  NRF_LOG_RAW_INFO("[flash] erasing 64kbits at 0x%08x...\n", address);
 }
 
 void flashWrite(uint32_t address, uint8_t* data, uint16_t length)
@@ -37,15 +45,16 @@ void flashWrite(uint32_t address, uint8_t* data, uint16_t length)
   transferDone = false;
   APP_ERROR_CHECK(nrf_drv_qspi_write(data, length, address));
   while(!transferDone) { __WFE(); };
-  NRF_LOG_RAW_INFO("[flash] writing...\n");
+  NRF_LOG_RAW_INFO("[flash] writing %d bytes to 0x%08x...\n", length, address);
 }
 
+// length must be divisible by 4
 void flashRead(uint32_t address, uint8_t* data, uint16_t length)
 {
   transferDone = false;
   APP_ERROR_CHECK(nrf_drv_qspi_read(data, length, address));
   while(!transferDone) { __WFE(); };
-  NRF_LOG_RAW_INFO("[flash] reading...\n");
+  // NRF_LOG_RAW_INFO("[flash] reading from 0x%08X...\n", address);
 }
 
 void flashInit()
@@ -75,6 +84,14 @@ void flashInit()
   cinstr_cfg.length = NRF_QSPI_CINSTR_LEN_2B;
   APP_ERROR_CHECK(nrf_drv_qspi_cinstr_xfer(&cinstr_cfg, &temporary, NULL));
 
+
+  uint16_t readConfig = 0x0;
+  cinstr_cfg.opcode = CMD_RDCR;
+  cinstr_cfg.length = NRF_QSPI_CINSTR_LEN_3B;
+  APP_ERROR_CHECK(nrf_drv_qspi_cinstr_xfer(&cinstr_cfg, NULL, &readConfig));
+
+  NRF_LOG_RAW_INFO("[flash] config%08X08X\n", readConfig[0], readConfig[1]);
+
   NRF_LOG_RAW_INFO("[flash] initialized\n");
 }
 
@@ -82,3 +99,8 @@ void flashDeInit(void)
 {
   nrf_drv_qspi_uninit();
 }
+
+
+nrfx_err_t nrfx_qspi_cinstr_xfer(nrf_qspi_cinstr_conf_t const * p_config,
+                                 void const *                   p_tx_buffer,
+                                 void *                         p_rx_buffer)
