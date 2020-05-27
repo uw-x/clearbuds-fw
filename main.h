@@ -27,6 +27,9 @@
 #define SEC_PARAM_MIN_KEY_SIZE          7                                       /**< Minimum encryption key size. */
 #define SEC_PARAM_MAX_KEY_SIZE          16                                      /**< Maximum encryption key size. */
 
+// Flash Configuration
+#define FLASH_READ_BUFFER_SIZE 512
+
 // Stack
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 void sleep_mode_enter(void);

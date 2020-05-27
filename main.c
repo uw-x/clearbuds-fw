@@ -49,22 +49,7 @@
 #include "flash.h"
 #include "main.h"
 
-#include "nrf_fstorage_sd.h"
-
-void fstorage_callback(nrf_fstorage_evt_t * p_evt);
-
-#define FSTORAGE_BASE_ADDR 0x60000
-#define FSTORAGE_END_ADDR 0x100000
-
-static volatile uint32_t flash_addr = FSTORAGE_BASE_ADDR;
-static volatile uint8_t fstorage_write_done = 1;
-
-NRF_FSTORAGE_DEF(nrf_fstorage_t fstorage_instance) =
-{
-    .evt_handler    = fstorage_callback,
-    .start_addr     = FSTORAGE_BASE_ADDR,
-    .end_addr       = FSTORAGE_END_ADDR,
-};
+#define SECONDS_TO_RECORD 3
 
 accelGenericInterrupt_t accelInterrupt1 = {
   .pin = ACCEL_INT1,
@@ -78,7 +63,8 @@ accelGenericInterrupt_t accelInterrupt1 = {
   .duration = 0x7,
 };
 
-int16_t* micData;
+static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
+static int16_t* micData;
 
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
@@ -173,7 +159,6 @@ static void idle(void)
 
 static void shioInit(void)
 {
-  ret_code_t ret;
   bool erase_bonds;
 
   logInit();
@@ -183,53 +168,21 @@ static void shioInit(void)
   eventQueueInit();
   buttons_leds_init(&erase_bonds);
 
-  nrf_fstorage_init(
-		&fstorage_instance, /* You fstorage instance, previously defined. */
-		&nrf_fstorage_sd, /* Name of the backend. */
-		NULL                /* Optional parameter, backend-dependant. */
-	);
+  flashInternalInit();
+  flashInternalErase(FLASH_INTERNAL_BASE_ADDRESS, (SECONDS_TO_RECORD*100000) / 4000); // Erase 125 4kB pages
 
-  nrf_fstorage_erase(&fstorage_instance, FSTORAGE_BASE_ADDR, 100, NULL);
-
-  // flashInit();
-  // for (int i = 0; i < 4; i++) {
-  //   flashErase(i*0x10000);
-  // }
   audioInit();
   // spiInit();
   // accelInit();
   // accelGenericInterruptEnable(&accelInterrupt1);
 
-  ret = nrf_drv_clock_init();
-  APP_ERROR_CHECK(ret);
+  APP_ERROR_CHECK(nrf_drv_clock_init());
 
   powerInit();
   // bleInit();
   // advertising_start(erase_bonds);
 
   NRF_LOG_RAW_INFO("[shio] booted\n");
-}
-
-uint32_t bytesWritten = 0;
-uint8_t flashReadBuffer[1024] = {0};
-int16_t* checkData;
-
-void fstorage_callback(nrf_fstorage_evt_t * p_evt) {
-	if (p_evt->result != NRF_SUCCESS) {
-		NRF_LOG_INFO("--> Event received: ERROR while executing an fstorage operation.");
-		return;
-	}
-
-	switch (p_evt->id) {
-	case NRF_FSTORAGE_EVT_WRITE_RESULT:
-		NRF_LOG_INFO("%d | --> Event received: wrote %d bytes at address 0x%x.", systemTimeGetMs(), p_evt->len, p_evt->addr);
-		flash_addr += PDM_INPUT_BUFFER_LENGTH*2;
-		fstorage_write_done = 1;
-		break;
-
-	default:
-		break;
-	}
 }
 
 static void processQueue(void)
@@ -243,52 +196,25 @@ static void processQueue(void)
         break;
       case EVENT_AUDIO_MIC_DATA_READY:
         micData = audioGetMicData();
+        flashInternalWrite(
+          (flashInternalGetNextWriteAddress()),
+          (uint8_t*) micData,
+          (2*PDM_INPUT_BUFFER_LENGTH));
 
-        // do we have space to write ?
-        if (flash_addr + PDM_INPUT_BUFFER_LENGTH*2 < FSTORAGE_END_ADDR) {
-          if (fstorage_write_done /*nrf_fstorage_is_busy(&fstorage_instance)*/) {
-            // write to flash
-            fstorage_write_done = 0;
-            ret_code_t rc = nrf_fstorage_write(
-              &fstorage_instance,     /* The instance to use. */
-              flash_addr,             /* The address in flash where to store the data. */
-              micData, /* A pointer to the data. */
-              PDM_INPUT_BUFFER_LENGTH*2, /* Lenght of the data, in bytes. */
-              NULL                    /* Optional parameter, backend-dependent. */
-            );
-
-            if (rc != NRF_SUCCESS)
-              NRF_LOG_ERROR("nrf_fstorage_write() = %d", rc);
-          } else NRF_LOG_ERROR("fstorage busy -> dumping buffer");
-        } else {
+        if (flashInternalGetBytesWritten() > SECONDS_TO_RECORD*100000) {
+          uint32_t readAddress = FLASH_INTERNAL_BASE_ADDRESS;
           audioDeInit();
-          flash_addr = FSTORAGE_BASE_ADDR;
-          for (int i = 0; i < 250; i++) {
-            nrf_fstorage_read(&fstorage_instance, flash_addr, flashReadBuffer, 1024);
-            flash_addr += 1024;
-            for (int j = 0; j < 1024; j+=2) {
+
+          // Read 512 bytes, 1000 times = 512000KB dump
+          for (int i = 0; i < 1000; i++) {
+            readAddress = flashInternalRead(readAddress, flashReadBuffer, FLASH_READ_BUFFER_SIZE);
+            for (int j = 0; j < 512; j+=2) {
               NRF_LOG_RAW_INFO("%d\n", (int16_t) (flashReadBuffer[j+1] << 8 | flashReadBuffer[j]));
             }
           }
-          while (1) {};
+
+          while(1) {};
         }
-
-
-
-        // flashWrite(bytesWritten, (uint8_t *) micData, sizeof(micData[0])*PDM_INPUT_BUFFER_LENGTH);
-        // bytesWritten += sizeof(micData[0])*PDM_INPUT_BUFFER_LENGTH;
-
-        // if (bytesWritten > 300000) {
-        //   audioDeInit();
-        //   for (int i = 0; i < 300; i++) {
-        //     flashRead(1024*i, flashReadBuffer, 1024);
-        //     for (int j = 0; j < 1024; j+=2) {
-        //       NRF_LOG_RAW_INFO("%d\n", (int16_t) (flashReadBuffer[j+1] << 8 | flashReadBuffer[j]));
-        //     }
-        //   }
-        //   while(1) {};
-        // }
-
         break;
       default:
         NRF_LOG_RAW_INFO("unhandled event");
@@ -302,7 +228,6 @@ static void processQueue(void)
 int main(void)
 {
   shioInit();
-
 
   for (;;)
   {
