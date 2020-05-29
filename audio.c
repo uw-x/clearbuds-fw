@@ -61,10 +61,7 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
  * @param[out] p_output      Pointer to processed data (bins) array in frequency domain.
  * @param[in] output_size    Processed data array size.
  */
-void fft_process(float32_t *                   p_input,
-                 const arm_cfft_instance_f32 * p_input_struct,
-                 float32_t *                   p_output,
-                 uint16_t                      output_size)
+void fft_process(float32_t *p_input, const arm_cfft_instance_f32 * p_input_struct, float32_t *p_output, uint16_t output_size)
 {
   static uint32_t  m_ifft_flag             = 0;    //!< Flag that selects forward (0) or inverse (1) transform.
   static uint32_t  m_do_bit_reverse        = 1;    //!< Flag that enables (1) or disables (0) bit reversal of output.

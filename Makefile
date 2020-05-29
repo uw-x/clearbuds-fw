@@ -339,3 +339,14 @@ SDK_CONFIG_FILE := $(PROJ_DIR)/config/sdk_config.h
 CMSIS_CONFIG_TOOL := $(SDK_ROOT)/external_tools/cmsisconfig/CMSIS_Configuration_Wizard.jar
 sdk_config:
 	java -jar $(CMSIS_CONFIG_TOOL) $(SDK_CONFIG_FILE)
+
+log:
+	osascript jlink-server.applescript
+	JLinkRTTClient
+
+log_server:
+	JLinkExe -device NRF52 -speed 4000 -if SWD -AutoConnect 1
+	# JLinkExe -device NRF52 -speed 4000 -if SWD -AutoConnect 1 > /dev/null &
+
+log_client:
+	JLinkRTTClient
