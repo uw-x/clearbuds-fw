@@ -7,6 +7,7 @@
 #include "accel.h"
 #include "accel_p.h"
 #include "event.h"
+#include "timers.h"
 
 accelStatus_t accelStatus;
 
@@ -114,6 +115,10 @@ uint16_t accelGetZ(void)
 
 void accelInit(void)
 {
+  gpioOutputEnable(ACCEL_EN_PIN);
+  gpioWrite(ACCEL_EN_PIN, 1);
+  delayMs(1);
+
   uint8_t version = accelRead(CHIP_ID_REG);
   if (version == CHIP_ID)
   {

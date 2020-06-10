@@ -8,7 +8,8 @@
 #include "boards.h"
 #include "gpio.h"
 
-void gpioInit(void) {
+void gpioInit(void)
+{
   ret_code_t err_code;
 
   err_code = nrf_drv_gpiote_init();
@@ -18,4 +19,19 @@ void gpioInit(void) {
 
   // err_code = nrf_drv_gpiote_out_init(PIN_OUT, &out_config);
   // APP_ERROR_CHECK(err_code);
+}
+
+void gpioOutputEnable(gpioPin_t pin)
+{
+  gpioOutput_t outputConfig = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(0);
+  nrf_drv_gpiote_out_init(pin, &outputConfig);
+}
+
+void gpioWrite(gpioPin_t pin, uint8_t value)
+{
+  if (value) {
+    nrfx_gpiote_out_set(pin);
+  } else {
+    nrfx_gpiote_out_clear(pin);
+  }
 }

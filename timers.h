@@ -4,4 +4,5 @@
 
 uint32_t systemTimeGetMs(void);
 uint64_t systemTimeGetUs(void);
+void delayMs(uint32_t);
 void timersInit(void);

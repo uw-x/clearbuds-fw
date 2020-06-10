@@ -3,6 +3,7 @@
 #include "nrf_drv_gpiote.h"
 
 // PDM
+#define MIC_EN                           NRF_GPIO_PIN_MAP(0, 15)
 #define PDM_CLK_PIN                      NRF_GPIO_PIN_MAP(1,8)
 #define PDM_DATA_PIN                     NRF_GPIO_PIN_MAP(1,9)
 
@@ -13,7 +14,8 @@
 #define SPI_CS_PIN                     NRF_GPIO_PIN_MAP(0,28)
 
 // ACCEL
-#define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 5)
+#define ACCEL_EN_PIN                     NRF_GPIO_PIN_MAP(1, 4)
+#define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 7)
 #define ACCEL_INT2_PIN                   NRF_GPIO_PIN_MAP(1, 6)
 
 // QSPI
@@ -32,11 +34,15 @@
 
 #define gpioPin_t                            nrfx_gpiote_pin_t
 #define gpioOutput_t                         nrf_drv_gpiote_out_config_t
+
 #define gpioInput_t                          nrf_drv_gpiote_in_config_t
-#define gpioOutputEnable(pin, config)          nrf_drv_gpiote_out_init(pin, config)
+// #define gpioOutputEnable(pin, config)          nrf_drv_gpiote_out_init(pin, config)
+// #define gpioOutputEnable(pin)                  nrf_drv_gpiote_out_init(pin, NRFX_GPIOTE_CONFIG_OUT_SIMPLE(0))
 #define gpioInputEnable(pin, config, handler)  nrf_drv_gpiote_in_init(pin, config, handler)
 #define gpioInterruptEnable(pin)             nrf_drv_gpiote_in_event_enable(pin, true)
 #define gpioInterruptDisable(pin)            nrf_drv_gpiote_in_event_disable(pin)
 #define gpioRead(pin)                        nrf_gpio_pin_read(pin)
 
 void gpioInit(void);
+void gpioOutputEnable(gpioPin_t pin);
+void gpioWrite(gpioPin_t pin, uint8_t value);

@@ -169,12 +169,15 @@ static void shioInit(void)
   buttons_leds_init(&erase_bonds);
 
   flashInternalInit();
+
+#ifdef MIC_TO_FLASH
   flashInternalErase(FLASH_INTERNAL_BASE_ADDRESS, (SECONDS_TO_RECORD*100000) / 4000); // Erase 125 4kB pages
+#endif
 
   audioInit();
-  // spiInit();
-  // accelInit();
-  // accelGenericInterruptEnable(&accelInterrupt1);
+  spiInit();
+  accelInit();
+  accelGenericInterruptEnable(&accelInterrupt1);
 
   APP_ERROR_CHECK(nrf_drv_clock_init());
 
@@ -196,6 +199,8 @@ static void processQueue(void)
         break;
       case EVENT_AUDIO_MIC_DATA_READY:
         micData = audioGetMicData();
+
+#ifdef MIC_TO_FLASH
         flashInternalWrite(
           (flashInternalGetNextWriteAddress()),
           (uint8_t*) micData,
@@ -215,6 +220,7 @@ static void processQueue(void)
 
           while(1) {};
         }
+#endif
         break;
       default:
         NRF_LOG_RAW_INFO("unhandled event");

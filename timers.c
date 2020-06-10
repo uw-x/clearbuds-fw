@@ -57,6 +57,12 @@ void SYSTEM_TIMER_IRQHandler(void)
     }
 }
 
+void delayMs(uint32_t delay)
+{
+  uint64_t now = systemTimeGetUs();
+  while (systemTimeGetUs() < (now +(delay * 1000))) { __WFE(); }
+}
+
 /**@brief Function for the Timer initialization.
  *
  * @details Initializes the timer module. This creates and starts application timers.
