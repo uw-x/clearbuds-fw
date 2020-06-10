@@ -157,6 +157,8 @@ static void idle(void)
   }
 }
 
+#define MIC_TO_FLASH
+
 static void shioInit(void)
 {
   bool erase_bonds;
@@ -238,7 +240,7 @@ int main(void)
   for (;;)
   {
     idle();
-    // audioService();
+    // audioService(); // draw fft, deprecated
     processQueue();
   }
 }

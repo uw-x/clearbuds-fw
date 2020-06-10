@@ -134,6 +134,10 @@ void audioInit(void)
   NVIC_EnableIRQ(FPU_IRQn);
 #endif
 
+  gpioOutputEnable(MIC_EN_PIN);
+  gpioWrite(MIC_EN_PIN, 1);
+  delayMs(1);
+
   nrfx_err_t errorStatus;
   nrfx_pdm_config_t pdmConfig = NRFX_PDM_DEFAULT_CONFIG(PDM_CLK_PIN, PDM_DATA_PIN);
   errorStatus = nrfx_pdm_init(&pdmConfig, (nrfx_pdm_event_handler_t) pdmEventHandler);

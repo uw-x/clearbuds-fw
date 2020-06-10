@@ -1,7 +1,7 @@
 // PDM
 #define PDM_INPUT_BUFFER_LENGTH          (512)                                  // This is the minimum size
 #define PDM_OUTPUT_BUFFER_LENGTH         (1024)                                 // Millisonic requires 1024 samples
-#define FFT_INPUT_BUFFER_LENGTH          (4)                                 // (2*PDM_OUTPUT_BUFFER_LENGTH), Need to interleave zeros
+#define FFT_INPUT_BUFFER_LENGTH          (4)                                    // (2*PDM_OUTPUT_BUFFER_LENGTH), Need to interleave zeros
 #define FFT_OUTPUT_BUFFER_LENGTH         (FFT_INPUT_BUFFER_LENGTH / 2)
 
 // FPU

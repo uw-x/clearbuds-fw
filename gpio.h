@@ -3,7 +3,7 @@
 #include "nrf_drv_gpiote.h"
 
 // PDM
-#define MIC_EN                           NRF_GPIO_PIN_MAP(0, 15)
+#define MIC_EN_PIN                       NRF_GPIO_PIN_MAP(0, 15)
 #define PDM_CLK_PIN                      NRF_GPIO_PIN_MAP(1,8)
 #define PDM_DATA_PIN                     NRF_GPIO_PIN_MAP(1,9)
 
