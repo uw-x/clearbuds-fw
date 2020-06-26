@@ -157,7 +157,7 @@ static void idle(void)
   }
 }
 
-#define MIC_TO_FLASH
+// #define MIC_TO_FLASH
 
 static void shioInit(void)
 {
@@ -184,8 +184,8 @@ static void shioInit(void)
   APP_ERROR_CHECK(nrf_drv_clock_init());
 
   powerInit();
-  // bleInit();
-  // advertising_start(erase_bonds);
+  bleInit();
+  advertising_start();
 
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }

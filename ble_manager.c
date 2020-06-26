@@ -39,26 +39,6 @@ static ble_uuid_t m_adv_uuids[] =                                               
     {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
 };
 
-/**@brief Function for handling Peer Manager events.
- *
- * @param[in] p_evt  Peer Manager event.
- */
-static void pm_evt_handler(pm_evt_t const * p_evt)
-{
-    pm_handler_on_pm_evt(p_evt);
-    pm_handler_flash_clean(p_evt);
-
-    switch (p_evt->evt_id)
-    {
-        case PM_EVT_PEERS_DELETE_SUCCEEDED:
-            advertising_start(false);
-            break;
-
-        default:
-            break;
-    }
-}
-
 /**@brief Function for the GAP initialization.
  *
  * @details This function sets up all the necessary GAP (Generic Access Profile) parameters of the
@@ -77,10 +57,6 @@ void gap_params_init(void)
                                           strlen(DEVICE_NAME));
     APP_ERROR_CHECK(err_code);
 
-    /* YOUR_JOB: Use an appearance value matching the application's use case.
-       err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_);
-       APP_ERROR_CHECK(err_code); */
-
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
 
     gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
@@ -92,13 +68,37 @@ void gap_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
+{
+  uint32_t data_length;
+  if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
+  {
+    data_length = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
+    //m_ble_params_info.mtu = m_ble_its_max_data_len;
 
-/**@brief Function for initializing the GATT module.
- */
+    NRF_LOG_INFO("gatt_event: ATT MTU is set to 0x%X (%d)", data_length, data_length);
+  } else if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_DATA_LENGTH_UPDATED)) {
+    data_length = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH - 4;
+    // m_ble_its_max_data_len = data_length;
+    // m_ble_params_info.mtu = m_ble_its_max_data_len;
+    // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
+    NRF_LOG_INFO("gatt_event: Data len is set to 0x%X (%d)", data_length, data_length);
+  }
+  //  NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
+  //  p_gatt->att_mtu_desired_central,
+  //  p_gatt->att_mtu_desired_periph);
+}
+
 void gatt_init(void)
 {
-    ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
-    APP_ERROR_CHECK(err_code);
+  ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, gatt_evt_handler);
+  APP_ERROR_CHECK(err_code);
+
+  err_code = nrf_ble_gatt_att_mtu_periph_set(&m_gatt, NRF_SDH_BLE_GATT_MAX_MTU_SIZE);
+  APP_ERROR_CHECK(err_code);
+
+  err_code = nrf_ble_gatt_data_length_set(&m_gatt, BLE_CONN_HANDLE_INVALID, NRF_SDH_BLE_GAP_DATA_LENGTH);
+  APP_ERROR_CHECK(err_code);
 }
 
 /**@brief Function for handling Queued Write Module errors.
@@ -139,76 +139,44 @@ static void on_yys_evt(ble_yy_service_t     * p_yy_service,
 }
 */
 
-/**@brief Function for initializing services that will be used by the application.
- */
 void services_init(void)
 {
-    ret_code_t         err_code;
-    nrf_ble_qwr_init_t qwr_init = {0};
+  ret_code_t         err_code;
+  nrf_ble_qwr_init_t qwr_init = {0};
 
-    // Initialize Queued Write Module.
-    qwr_init.error_handler = nrf_qwr_error_handler;
+  // Initialize Queued Write Module.
+  qwr_init.error_handler = nrf_qwr_error_handler;
 
-    err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
-    APP_ERROR_CHECK(err_code);
+  err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
+  APP_ERROR_CHECK(err_code);
 
-    /* YOUR_JOB: Add code to initialize the services used by the application.
-       ble_xxs_init_t                     xxs_init;
-       ble_yys_init_t                     yys_init;
-
-       // Initialize XXX Service.
-       memset(&xxs_init, 0, sizeof(xxs_init));
-
-       xxs_init.evt_handler                = NULL;
-       xxs_init.is_xxx_notify_supported    = true;
-       xxs_init.ble_xx_initial_value.level = 100;
-
-       err_code = ble_bas_init(&m_xxs, &xxs_init);
-       APP_ERROR_CHECK(err_code);
-
-       // Initialize YYY Service.
-       memset(&yys_init, 0, sizeof(yys_init));
-       yys_init.evt_handler                  = on_yys_evt;
-       yys_init.ble_yy_initial_value.counter = 0;
-
-       err_code = ble_yy_service_init(&yys_init, &yy_init);
-       APP_ERROR_CHECK(err_code);
-     */
+  // Initialize mic stream service here
 }
 
-/**@brief Function for handling the Connection Parameters Module.
- *
- * @details This function will be called for all events in the Connection Parameters Module which
- *          are passed to the application.
- *          @note All this function does is to disconnect. This could have been done by simply
- *                setting the disconnect_on_fail config parameter, but instead we use the event
- *                handler mechanism to demonstrate its use.
- *
- * @param[in] p_evt  Event received from the Connection Parameters Module.
- */
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 {
-    ret_code_t err_code;
+  switch(p_evt->evt_type)
+  {
+    case BLE_CONN_PARAMS_EVT_SUCCEEDED:
+      break;
 
-    if (p_evt->evt_type == BLE_CONN_PARAMS_EVT_FAILED)
-    {
-        err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
-        APP_ERROR_CHECK(err_code);
-    }
+    case BLE_CONN_PARAMS_EVT_FAILED:
+      //err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_CONN_INTERVAL_UNACCEPTABLE);
+      //APP_ERROR_CHECK(err_code);
+      NRF_LOG_ERROR("Conn params failed. Keep the connection anyway..");
+      break;
+
+    default:
+      NRF_LOG_INFO("Unhandled conn params event %d", p_evt->evt_type);
+      break;
+  }
 }
 
-
-/**@brief Function for handling a Connection Parameters error.
- *
- * @param[in] nrf_error  Error code containing information about what went wrong.
- */
 static void conn_params_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
 }
 
-/**@brief Function for initializing the Connection Parameters module.
- */
 void conn_params_init(void)
 {
     ret_code_t             err_code;
@@ -248,7 +216,11 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
 
         case BLE_ADV_EVT_IDLE:
+            NRF_LOG_INFO("BLE_ADV_EVT_IDLE...");
             sleep_mode_enter();
+            // Option to restart advertising
+            // err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+            // APP_ERROR_CHECK(err_code);
             break;
 
         default:
@@ -256,11 +228,6 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     }
 }
 
-/**@brief Function for handling BLE events.
- *
- * @param[in]   p_ble_evt   Bluetooth stack event.
- * @param[in]   p_context   Unused.
- */
 static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
     ret_code_t err_code = NRF_SUCCESS;
@@ -279,19 +246,53 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
             APP_ERROR_CHECK(err_code);
+            // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
             break;
+
+        case BLE_GAP_EVT_CONN_PARAM_UPDATE:
+        {
+          uint16_t max_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.max_conn_interval;
+          uint16_t min_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.min_conn_interval;
+          // m_ble_params_info.con_interval = max_con_int;
+          // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
+          NRF_LOG_INFO("Con params updated: CI %i, %i", (int)min_con_int, (int)max_con_int);
+          break;
+        }
+
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-            NRF_LOG_DEBUG("PHY update request.");
-            ble_gap_phys_t const phys =
-            {
-                .rx_phys = BLE_GAP_PHY_AUTO,
-                .tx_phys = BLE_GAP_PHY_AUTO,
-            };
-            err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
-            APP_ERROR_CHECK(err_code);
-        } break;
+          NRF_LOG_DEBUG("PHY update request.");
+          ble_gap_phys_t const phys =
+          {
+              .rx_phys = BLE_GAP_PHY_AUTO,
+              .tx_phys = BLE_GAP_PHY_AUTO,
+          };
+          err_code = sd_ble_gap_phy_update(p_ble_evt->evt.gap_evt.conn_handle, &phys);
+          APP_ERROR_CHECK(err_code);
+          break;
+        }
+
+        case BLE_GAP_EVT_PHY_UPDATE:
+        {
+          int tx_phy = p_ble_evt->evt.gap_evt.params.phy_update.tx_phy;
+          int rx_phy = p_ble_evt->evt.gap_evt.params.phy_update.rx_phy;
+          // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
+          NRF_LOG_INFO("Phy update: %i, %i", tx_phy, rx_phy);
+          break;
+        }
+
+        case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+          NRF_LOG_INFO("Pairing not supported");
+          err_code = sd_ble_gap_sec_params_reply(m_conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
+          APP_ERROR_CHECK(err_code);
+          break;
+
+        case BLE_GATTS_EVT_SYS_ATTR_MISSING:
+          NRF_LOG_INFO("No system attributes have been stored.");
+          err_code = sd_ble_gatts_sys_attr_set(m_conn_handle, NULL, 0, 0);
+          APP_ERROR_CHECK(err_code);
+          break;
 
         case BLE_GATTC_EVT_TIMEOUT:
             // Disconnect on GATT Client timeout event.
@@ -311,14 +312,11 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
         default:
             // No implementation needed.
+            NRF_LOG_INFO("BLE event not handled by app: %i", p_ble_evt->header.evt_id);
             break;
     }
 }
 
-/**@brief Function for initializing the BLE stack.
- *
- * @details Initializes the SoftDevice and the BLE event interrupt.
- */
 void ble_stack_init(void)
 {
     ret_code_t err_code;
@@ -340,53 +338,6 @@ void ble_stack_init(void)
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
 }
 
-/**@brief Function for the Peer Manager initialization.
- */
-void peer_manager_init(void)
-{
-    ble_gap_sec_params_t sec_param;
-    ret_code_t           err_code;
-
-    err_code = pm_init();
-    APP_ERROR_CHECK(err_code);
-
-    memset(&sec_param, 0, sizeof(ble_gap_sec_params_t));
-
-    // Security parameters to be used for all security procedures.
-    sec_param.bond           = SEC_PARAM_BOND;
-    sec_param.mitm           = SEC_PARAM_MITM;
-    sec_param.lesc           = SEC_PARAM_LESC;
-    sec_param.keypress       = SEC_PARAM_KEYPRESS;
-    sec_param.io_caps        = SEC_PARAM_IO_CAPABILITIES;
-    sec_param.oob            = SEC_PARAM_OOB;
-    sec_param.min_key_size   = SEC_PARAM_MIN_KEY_SIZE;
-    sec_param.max_key_size   = SEC_PARAM_MAX_KEY_SIZE;
-    sec_param.kdist_own.enc  = 1;
-    sec_param.kdist_own.id   = 1;
-    sec_param.kdist_peer.enc = 1;
-    sec_param.kdist_peer.id  = 1;
-
-    err_code = pm_sec_params_set(&sec_param);
-    APP_ERROR_CHECK(err_code);
-
-    err_code = pm_register(pm_evt_handler);
-    APP_ERROR_CHECK(err_code);
-}
-
-/**@brief Clear bond information from persistent storage.
- */
-static void delete_bonds(void)
-{
-    ret_code_t err_code;
-
-    NRF_LOG_INFO("Erase bonds!");
-
-    err_code = pm_peers_delete();
-    APP_ERROR_CHECK(err_code);
-}
-
-/**@brief Function for initializing the Advertising functionality.
- */
 void advertising_init(void)
 {
     ret_code_t             err_code;
@@ -395,7 +346,7 @@ void advertising_init(void)
     memset(&init, 0, sizeof(init));
 
     init.advdata.name_type               = BLE_ADVDATA_FULL_NAME;
-    init.advdata.include_appearance      = true;
+    init.advdata.include_appearance      = false;
     init.advdata.flags                   = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.advdata.uuids_complete.p_uuids  = m_adv_uuids;
@@ -403,7 +354,6 @@ void advertising_init(void)
     init.config.ble_adv_fast_enabled  = true;
     init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
     init.config.ble_adv_fast_timeout  = APP_ADV_DURATION;
-
     init.evt_handler = on_adv_evt;
 
     err_code = ble_advertising_init(&m_advertising, &init);
@@ -412,21 +362,10 @@ void advertising_init(void)
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
 
-/**@brief Function for starting advertising.
- */
-void advertising_start(bool erase_bonds)
+void advertising_start()
 {
-    if (erase_bonds == true)
-    {
-        delete_bonds();
-        // Advertising is started by PM_EVT_PEERS_DELETED_SUCEEDED event
-    }
-    else
-    {
-        ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-
-        APP_ERROR_CHECK(err_code);
-    }
+  ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+  APP_ERROR_CHECK(err_code);
 }
 
 void bleInit(void)
@@ -437,5 +376,4 @@ void bleInit(void)
     advertising_init();
     services_init();
     conn_params_init();
-    peer_manager_init();
 }
