@@ -158,6 +158,7 @@ static void idle(void)
 }
 
 // #define MIC_TO_FLASH
+#define MIC_TO_BLE
 
 static void shioInit(void)
 {
@@ -192,6 +193,8 @@ static void shioInit(void)
 
 static void processQueue(void)
 {
+  static bool streamStarted = false;
+
   if (!eventQueueIsEmpty()) {
     switch(eventQueueFront()) {
       case EVENT_ACCEL_MOTION:
@@ -201,6 +204,12 @@ static void processQueue(void)
         break;
       case EVENT_AUDIO_MIC_DATA_READY:
         micData = audioGetMicData();
+
+#ifdef MIC_TO_BLE
+        if (streamStarted) {
+          bleSendData(micData, PDM_INPUT_BUFFER_LENGTH);
+        }
+#endif
 
 #ifdef MIC_TO_FLASH
         flashInternalWrite(
@@ -224,8 +233,19 @@ static void processQueue(void)
         }
 #endif
         break;
+
+      case EVENT_BLE_DATA_STREAM_START:
+        streamStarted = true;
+        NRF_LOG_RAW_INFO("stream start\n");
+        break;
+
+      case EVENT_BLE_DATA_STREAM_STOP:
+        streamStarted = false;
+        NRF_LOG_RAW_INFO("stream stop\n");
+        break;
+
       default:
-        NRF_LOG_RAW_INFO("unhandled event");
+        NRF_LOG_RAW_INFO("unhandled event\n");
         break;
     }
 

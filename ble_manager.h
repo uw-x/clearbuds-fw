@@ -11,9 +11,9 @@
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
-BLE_MIC_SERVICE_DEF(m_mic_service);
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
 
 void advertising_start();
 void bleInit(void);
+void bleSendData(int16_t * data, uint16_t length);

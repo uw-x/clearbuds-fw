@@ -31,12 +31,18 @@
 #include "nrf_log_default_backends.h"
 
 #include "main.h"
+#include "event.h"
 #include "ble_manager.h"
+#include "timers.h"
+
+// Custom services
+#include "ble_cus.h"
+BLE_CUS_DEF(m_cus);
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
-    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
+  {CUSTOM_SERVICE_UUID, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
 
 /**@brief Function for the GAP initialization.
@@ -113,31 +119,29 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
-/**@brief Function for handling the YYY Service events.
- * YOUR_JOB implement a service handler function depending on the event the service you are using can generate
- *
- * @details This function will be called for all YY Service events which are passed to
- *          the application.
- *
- * @param[in]   p_yy_service   YY Service structure.
- * @param[in]   p_evt          Event received from the YY Service.
- *
- *
-static void on_yys_evt(ble_yy_service_t     * p_yy_service,
-                       ble_yy_service_evt_t * p_evt)
+static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
 {
-    switch (p_evt->evt_type)
-    {
-        case BLE_YY_NAME_EVT_WRITE:
-            APPL_LOG("[APPL]: charact written with value %s. ", p_evt->params.char_xx.value.p_str);
-            break;
+  switch(p_evt->evt_type) {
+    case BLE_CUS_EVT_NOTIFICATION_ENABLED:
+      eventQueuePush(EVENT_BLE_DATA_STREAM_START);
+      break;
 
-        default:
-            // No implementation needed.
-            break;
-    }
+    case BLE_CUS_EVT_NOTIFICATION_DISABLED:
+      // End mic stream signal
+      eventQueuePush(EVENT_BLE_DATA_STREAM_STOP);
+      break;
+
+    case BLE_CUS_EVT_CONNECTED:
+      break;
+
+    case BLE_CUS_EVT_DISCONNECTED:
+      break;
+
+    default:
+      // No implementation needed.
+      break;
+  }
 }
-*/
 
 void services_init(void)
 {
@@ -150,7 +154,16 @@ void services_init(void)
   err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
   APP_ERROR_CHECK(err_code);
 
-  // Initialize mic stream service here
+  // Initialize mic stream service
+  ble_cus_init_t cus_init;
+  memset(&cus_init, 0, sizeof(cus_init));
+
+  BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cus_init.custom_value_char_attr_md.read_perm);
+  BLE_GAP_CONN_SEC_MODE_SET_OPEN(&cus_init.custom_value_char_attr_md.write_perm);
+
+  cus_init.evt_handler = on_cus_evt;
+  err_code = ble_cus_init(&m_cus, &cus_init);
+  APP_ERROR_CHECK(err_code);
 }
 
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
@@ -235,19 +248,18 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_DISCONNECTED:
-            NRF_LOG_INFO("Disconnected.");
-            // LED indication will be changed when advertising starts.
-            break;
+          NRF_LOG_INFO("Disconnected.");
+          // LED indication will be changed when advertising starts.
+          break;
 
         case BLE_GAP_EVT_CONNECTED:
-            NRF_LOG_INFO("Connected.");
-            err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
-            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
-            APP_ERROR_CHECK(err_code);
-            // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
-            break;
+          NRF_LOG_INFO("Connected.");
+          err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
+          APP_ERROR_CHECK(err_code);
+          m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+          err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
+          APP_ERROR_CHECK(err_code);
+          break;
 
         case BLE_GAP_EVT_CONN_PARAM_UPDATE:
         {
@@ -258,7 +270,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
           NRF_LOG_INFO("Con params updated: CI %i, %i", (int)min_con_int, (int)max_con_int);
           break;
         }
-
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
@@ -277,7 +288,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
         {
           int tx_phy = p_ble_evt->evt.gap_evt.params.phy_update.tx_phy;
           int rx_phy = p_ble_evt->evt.gap_evt.params.phy_update.rx_phy;
-          // ble_its_ble_params_info_send(&m_its, &m_ble_params_info);
           NRF_LOG_INFO("Phy update: %i, %i", tx_phy, rx_phy);
           break;
         }
@@ -295,25 +305,33 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
           break;
 
         case BLE_GATTC_EVT_TIMEOUT:
-            // Disconnect on GATT Client timeout event.
-            NRF_LOG_DEBUG("GATT Client Timeout.");
-            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
-            break;
+          // Disconnect on GATT Client timeout event.
+          NRF_LOG_DEBUG("GATT Client Timeout.");
+          err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
+                                            BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+          APP_ERROR_CHECK(err_code);
+          break;
 
         case BLE_GATTS_EVT_TIMEOUT:
-            // Disconnect on GATT Server timeout event.
-            NRF_LOG_DEBUG("GATT Server Timeout.");
-            err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
-                                             BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-            APP_ERROR_CHECK(err_code);
-            break;
+          // Disconnect on GATT Server timeout event.
+          NRF_LOG_DEBUG("GATT Server Timeout.");
+          err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
+                                            BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+          APP_ERROR_CHECK(err_code);
+          break;
+
+        case BLE_GATTS_EVT_WRITE:
+          NRF_LOG_INFO("BLE_GATTS_EVT_WRITE");
+          break;
+
+        case BLE_GATTS_EVT_HVN_TX_COMPLETE:
+          NRF_LOG_DEBUG("Handle value notification");
+          break;
 
         default:
-            // No implementation needed.
-            NRF_LOG_INFO("BLE event not handled by app: %i", p_ble_evt->header.evt_id);
-            break;
+          // No implementation needed.
+          NRF_LOG_INFO("BLE event not handled by app: %i", p_ble_evt->header.evt_id);
+          break;
     }
 }
 
@@ -373,7 +391,14 @@ void bleInit(void)
     ble_stack_init();
     gap_params_init();
     gatt_init();
-    advertising_init();
     services_init();
+    advertising_init();
     conn_params_init();
+}
+
+void bleSendData(int16_t * data, uint16_t length)
+{
+  NRF_LOG_RAW_INFO("%08d [ble] send data\n", systemTimeGetMs());
+  ret_code_t err_code = ble_cus_custom_value_update(&m_cus, (uint8_t) (data[0] & 0xFF));
+  APP_ERROR_CHECK(err_code);
 }

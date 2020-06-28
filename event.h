@@ -3,6 +3,8 @@ typedef enum {
   EVENT_ACCEL_MOTION,
   EVENT_ACCEL_STATIC,
   EVENT_AUDIO_MIC_DATA_READY,
+  EVENT_BLE_DATA_STREAM_START,
+  EVENT_BLE_DATA_STREAM_STOP,
 } event_t;
 
 bool    eventQueueIsEmpty(void);
