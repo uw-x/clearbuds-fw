@@ -186,7 +186,7 @@ static void shioInit(void)
 
   powerInit();
   bleInit();
-  advertising_start();
+  bleAdvertisingStart();
 
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }
@@ -207,7 +207,7 @@ static void processQueue(void)
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
-          bleSendData(micData, PDM_INPUT_BUFFER_LENGTH);
+          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
         }
 #endif
 
@@ -215,7 +215,7 @@ static void processQueue(void)
         flashInternalWrite(
           (flashInternalGetNextWriteAddress()),
           (uint8_t*) micData,
-          (2*PDM_INPUT_BUFFER_LENGTH));
+          (2*PDM_BUFFER_LENGTH));
 
         if (flashInternalGetBytesWritten() > SECONDS_TO_RECORD*100000) {
           uint32_t readAddress = FLASH_INTERNAL_BASE_ADDRESS;
@@ -260,7 +260,6 @@ int main(void)
   for (;;)
   {
     idle();
-    // audioService(); // draw fft, deprecated
     processQueue();
   }
 }

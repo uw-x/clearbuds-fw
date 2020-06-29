@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "ble.h"
 #include "ble_srv_common.h"
+#include "nrf_ble_gatt.h"
 
 // This was written by following:
 // https://github.com/bjornspockeli/custom_ble_service_example
@@ -16,12 +17,11 @@
 // These can be random
 #define CUSTOM_SERVICE_UUID               0x1400
 #define CUSTOM_VALUE_CHAR_UUID            0x1401
+#define MIC_CHAR_UUID                     0x1402
 
 #define BLE_CUS_DEF(_name) \
   static ble_cus_t _name; \
-  NRF_SDH_BLE_OBSERVER(_name ## _obs, \
-                       BLE_HRS_BLE_OBSERVER_PRIO, \
-                       ble_cus_on_ble_evt, &_name)
+  NRF_SDH_BLE_OBSERVER(_name ## _obs, BLE_HRS_BLE_OBSERVER_PRIO, ble_cus_on_ble_evt, &_name)
 
 typedef struct ble_cus_s ble_cus_t; // Forward declaration
 
@@ -29,13 +29,15 @@ typedef enum
 {
   BLE_CUS_EVT_NOTIFICATION_ENABLED,                             /**< Custom value notification enabled event. */
   BLE_CUS_EVT_NOTIFICATION_DISABLED,                            /**< Custom value notification disabled event. */
+  BLE_CUS_EVT_TRANSFER_1KB,
   BLE_CUS_EVT_DISCONNECTED,
-  BLE_CUS_EVT_CONNECTED
+  BLE_CUS_EVT_CONNECTED,
 } ble_cus_evt_type_t;
 
 typedef struct
 {
   ble_cus_evt_type_t evt_type;                                  /**< Type of event. */
+  uint32_t           bytes_transfered_cnt;   //!< Number of bytes sent during the transfer. */
 } ble_cus_evt_t;
 
 typedef void (*ble_cus_evt_handler_t) (ble_cus_t * p_cus, ble_cus_evt_t * p_evt);
@@ -52,16 +54,18 @@ typedef struct
 /**@brief Custom Service structure. This contains various status information for the service. */
 struct ble_cus_s
 {
-  ble_cus_evt_handler_t         evt_handler;                    /**< Event handler to be called for handling events in the Custom Service. */
-  uint16_t                      service_handle;                 /**< Handle of Custom Service (as provided by the BLE stack). */
-  ble_gatts_char_handles_t      custom_value_handles;           /**< Handles related to the Custom Value characteristic. */
   uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
   uint8_t                       uuid_type;
+  ble_gatts_char_handles_t      custom_value_handles;           /**< Handles related to the Custom Value characteristic. */
+  ble_cus_evt_handler_t         evt_handler;                    /**< Event handler to be called for handling events in the Custom Service. */
+  uint16_t                      max_payload_len;                //!< Maximum number of bytes that can be sent in one notification. */
+  uint32_t                      kbytes_sent;                    //!< Number of kilobytes sent. */
+  uint32_t                      bytes_sent;                     //!< Number of bytes sent. */
+  uint16_t                      service_handle;                 /**< Handle of Custom Service (as provided by the BLE stack). */
 };
 
 uint32_t ble_cus_init(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init);
 void ble_cus_on_ble_evt( ble_evt_t const * p_ble_evt, void * p_context);
 uint32_t ble_cus_custom_value_update(ble_cus_t * p_cus, uint8_t custom_value);
-
-
-
+void ble_cus_on_gatt_evt(ble_cus_t * p_cus, nrf_ble_gatt_evt_t const * p_gatt_evt);
+bool ble_cus_transmit(ble_cus_t * p_cus, uint8_t * data, uint16_t length);
