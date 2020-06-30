@@ -20,6 +20,7 @@
 #include "draw.h"
 #include "gpio.h"
 #include "event.h"
+#include "main.h"
 #include "audio.h"
 
 int16_t pdmBuffer[2][PDM_BUFFER_LENGTH] = {0};

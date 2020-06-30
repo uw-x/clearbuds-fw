@@ -35,15 +35,68 @@
 #include "ble_manager.h"
 #include "timers.h"
 
+#include "nrf_nvic.h"
+
 // Custom services
 #include "ble_cus.h"
 BLE_CUS_DEF(m_cus);
 
+static uint8_t* transmitData;
+static uint16_t transmitOffset;
+static uint32_t transmitLength;
+static uint16_t maxAttMtuBytes;
 static volatile bool transmitDone;
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
   {CUSTOM_SERVICE_UUID, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
+
+static void send(void)
+{
+  int length;
+  while(transmitDone) {
+    length = MIN(maxAttMtuBytes, transmitLength);
+
+    // Send data to ble layer
+    transmitDone = ble_cus_transmit(&m_cus, transmitData+transmitOffset, length);
+
+    if (transmitDone) {
+      // Calculate remaining bytes to transmit
+      transmitLength -= length;
+
+      // Offset for next transmission
+      transmitOffset += length;
+    }
+  }
+}
+
+char const * phy_str(ble_gap_phys_t phys)
+{
+  static char const * str[] =
+  {
+    "1 Mbps",
+    "2 Mbps",
+    "Coded",
+    "Unknown"
+  };
+
+  switch (phys.tx_phys)
+  {
+    case BLE_GAP_PHY_1MBPS:
+      return str[0];
+
+    case BLE_GAP_PHY_2MBPS:
+    case BLE_GAP_PHY_2MBPS | BLE_GAP_PHY_1MBPS:
+    case BLE_GAP_PHY_2MBPS | BLE_GAP_PHY_1MBPS | BLE_GAP_PHY_CODED:
+      return str[1];
+
+    case BLE_GAP_PHY_CODED:
+      return str[2];
+
+    default:
+      return str[3];
+  }
+}
 
 static void gap_params_init(void)
 {
@@ -69,20 +122,32 @@ static void gap_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+#define OPCODE_LENGTH 1
+#define HANDLE_LENGTH 2
 static void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 {
   switch (p_evt->evt_id)
   {
     case NRF_BLE_GATT_EVT_ATT_MTU_UPDATED:
     {
+      maxAttMtuBytes = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
       NRF_LOG_INFO("ATT MTU exchange completed. MTU set to %u bytes.",
                     p_evt->params.att_mtu_effective);
-    } break;
+      break;
+    }
 
     case NRF_BLE_GATT_EVT_DATA_LENGTH_UPDATED:
     {
       NRF_LOG_INFO("Data length updated to %u bytes.", p_evt->params.data_length);
-    } break;
+
+      uint8_t dataLength;
+      nrf_ble_gatt_data_length_get(&m_gatt, m_conn_handle, &dataLength);
+      NRF_LOG_INFO("nrf_ble_gatt_data_length_get: %u", dataLength);
+
+      uint16_t effMtu = nrf_ble_gatt_eff_mtu_get(&m_gatt, m_conn_handle);
+      NRF_LOG_INFO("nrf_ble_gatt_eff_mtu_get: %u", effMtu);
+      break;
+    }
   }
 
   ble_cus_on_gatt_evt(&m_cus, p_evt);
@@ -109,6 +174,7 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
 {
   switch(p_evt->evt_type) {
     case BLE_CUS_EVT_NOTIFICATION_ENABLED:
+      transmitDone = true; // reset value
       eventQueuePush(EVENT_BLE_DATA_STREAM_START);
       break;
 
@@ -124,8 +190,12 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
       break;
 
     case BLE_CUS_EVT_TRANSFER_1KB:
-      NRF_LOG_INFO("Sent %u KBytes", (p_evt->bytes_transfered_cnt / 1024));
+    {
+      if (((p_evt->bytes_transfered_cnt / 1024) % 10) == 0) {
+        NRF_LOG_RAW_INFO("%08d [ble] sent %u kB\n", systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024));
+      }
       break;
+    }
 
     default:
       // No implementation needed.
@@ -207,7 +277,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
   switch (ble_adv_evt)
   {
     case BLE_ADV_EVT_FAST:
-      NRF_LOG_INFO("Fast advertising.");
+      NRF_LOG_RAW_INFO("[ble] fast advertising\n");
       err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
       APP_ERROR_CHECK(err_code);
       break;
@@ -249,13 +319,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
       uint16_t max_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.max_conn_interval;
       uint16_t min_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.min_conn_interval;
-      NRF_LOG_INFO("Connection interval updated: %d, %d.", 1.25*min_con_int, 1.25*max_con_int);
+      NRF_LOG_INFO("Connection interval updated: %d, %d", (5*min_con_int)/4, (5*max_con_int)/4);
       break;
     }
 
     case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
     {
-      NRF_LOG_INFO("PHY update request.");
       ble_gap_phys_t const phys =
       {
           .rx_phys = BLE_GAP_PHY_AUTO,
@@ -268,9 +337,22 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     case BLE_GAP_EVT_PHY_UPDATE:
     {
-      int tx_phy = p_ble_evt->evt.gap_evt.params.phy_update.tx_phy;
-      int rx_phy = p_ble_evt->evt.gap_evt.params.phy_update.rx_phy;
-      NRF_LOG_INFO("Phy update: %i, %i", tx_phy, rx_phy);
+      ble_gap_evt_phy_update_t const * p_phy_evt = &p_ble_evt->evt.gap_evt.params.phy_update;
+
+      if (p_phy_evt->status == BLE_HCI_STATUS_CODE_LMP_ERROR_TRANSACTION_COLLISION)
+      {
+        // Ignore LL collisions.
+        NRF_LOG_DEBUG("LL transaction collision during PHY update.");
+        break;
+      }
+
+      ble_gap_phys_t phys = {0};
+      phys.tx_phys = p_phy_evt->tx_phy;
+      phys.rx_phys = p_phy_evt->rx_phy;
+      NRF_LOG_INFO("PHY update %s. PHY set to %s.",
+                    (p_phy_evt->status == BLE_HCI_STATUS_CODE_SUCCESS) ?
+                    "accepted" : "rejected",
+                    phy_str(phys));
       break;
     }
 
@@ -308,19 +390,25 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     case BLE_GATTS_EVT_HVN_TX_COMPLETE:
       transmitDone = true;
+      if (transmitLength > 0) {
+        send();
+      } else {
+        eventQueuePush(EVENT_BLE_SEND_DATA_DONE);
+      }
+
       NRF_LOG_DEBUG("Handle value notification");
       break;
 
     case BLE_GATTC_EVT_EXCHANGE_MTU_RSP:
-      NRF_LOG_INFO("Unhandled: BLE_GATTC_EVT_EXCHANGE_MTU_RSP");
+      NRF_LOG_INFO("BLE_GATTC_EVT_EXCHANGE_MTU_RSP");
       break;
 
     case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
-      NRF_LOG_INFO("Unhandled: BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST");
+      NRF_LOG_INFO("BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST");
       break;
 
     case BLE_GAP_EVT_DATA_LENGTH_UPDATE:
-      NRF_LOG_INFO("Unhandled: BLE_GAP_EVT_DATA_LENGTH_UPDATE");
+      NRF_LOG_INFO("BLE_GAP_EVT_DATA_LENGTH_UPDATE");
       break;
 
     default:
@@ -375,6 +463,34 @@ static void advertising_init(void)
   ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
 }
 
+void SWI1_IRQHandler(bool radio_evt)
+{
+  if (radio_evt) { eventQueuePush(EVENT_BLE_RADIO_START); }
+}
+
+uint32_t radio_notification_init(uint32_t irq_priority, uint8_t notification_type, uint8_t notification_distance)
+{
+  uint32_t err_code;
+
+  err_code = sd_nvic_ClearPendingIRQ(SWI1_IRQn);
+  if (err_code != NRF_SUCCESS) {
+    return err_code;
+  }
+
+  err_code = sd_nvic_SetPriority(SWI1_IRQn, irq_priority);
+  if (err_code != NRF_SUCCESS) {
+    return err_code;
+  }
+
+  err_code = sd_nvic_EnableIRQ(SWI1_IRQn);
+  if (err_code != NRF_SUCCESS) {
+    return err_code;
+  }
+
+  // Configure the event
+  return sd_radio_notification_cfg_set(notification_type, notification_distance);
+}
+
 // PUBLIC
 void bleAdvertisingStart()
 {
@@ -385,18 +501,33 @@ void bleAdvertisingStart()
 void bleInit(void)
 {
   ble_stack_init();
+  ret_code_t err_code = radio_notification_init(3, NRF_RADIO_NOTIFICATION_TYPE_INT_ON_ACTIVE, NRF_RADIO_NOTIFICATION_DISTANCE_800US);
+  APP_ERROR_CHECK(err_code);
   gap_params_init();
   gatt_init();
   services_init();
   advertising_init();
   conn_params_init();
-  transmitDone = false;
+  transmitDone = true;
+
+  NRF_LOG_RAW_INFO("[ble] address %08X %08X\n", NRF_FICR->DEVICEADDR[0], NRF_FICR->DEVICEADDR[1]);
 }
 
-void bleSendData(uint8_t * data, uint16_t length)
+void bleSendData(uint8_t * data, uint32_t length)
 {
-  transmitDone = ble_cus_transmit(&m_cus, data, length);
   if (!transmitDone) {
     NRF_LOG_RAW_INFO("%08d [ble] still transmitting, dumping request\n", systemTimeGetMs());
+    return;
   }
+
+  transmitData = data;
+  transmitOffset = 0;
+  transmitLength = length;
+
+  send();
+}
+
+bool bleCanTransmit(void)
+{
+  return transmitDone && (transmitLength == 0);
 }

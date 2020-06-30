@@ -6,4 +6,5 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
 
 void bleAdvertisingStart();
 void bleInit(void);
-void bleSendData(uint8_t * data, uint16_t length);
+void bleSendData(uint8_t * data, uint32_t length);
+bool bleCanTransmit(void);

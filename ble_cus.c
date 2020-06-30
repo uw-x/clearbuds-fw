@@ -87,15 +87,15 @@ bool ble_cus_transmit(ble_cus_t * p_cus, uint8_t * data, uint16_t length)
   ble_cus_evt_t evt;
 
   if (p_cus == NULL) { return NRF_ERROR_NULL; }
-  if (length > payload_len) { NRF_LOG_ERROR("length > max(%d), truncating", p_cus->max_payload_len); }
+  if (length > payload_len) { NRF_LOG_INFO("length > max(%d), truncating", p_cus->max_payload_len); }
   else { payload_len = length; }
 
   ble_gatts_hvx_params_t const hvx_param =
   {
-    .type   = BLE_GATT_HVX_NOTIFICATION,
     .handle = p_cus->custom_value_handles.value_handle,
     .p_data = data,
     .p_len  = &payload_len,
+    .type   = BLE_GATT_HVX_NOTIFICATION,
   };
 
   uint32_t err_code = NRF_SUCCESS;

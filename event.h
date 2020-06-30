@@ -5,6 +5,8 @@ typedef enum {
   EVENT_AUDIO_MIC_DATA_READY,
   EVENT_BLE_DATA_STREAM_START,
   EVENT_BLE_DATA_STREAM_STOP,
+  EVENT_BLE_RADIO_START,
+  EVENT_BLE_SEND_DATA_DONE,
 } event_t;
 
 bool    eventQueueIsEmpty(void);

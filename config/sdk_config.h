@@ -10994,7 +10994,7 @@
 // <i> Requested BLE GAP data length to be negotiated.
 
 #ifndef NRF_SDH_BLE_GAP_DATA_LENGTH
-#define NRF_SDH_BLE_GAP_DATA_LENGTH 27
+#define NRF_SDH_BLE_GAP_DATA_LENGTH 251
 #endif
 
 // <o> NRF_SDH_BLE_PERIPHERAL_LINK_COUNT - Maximum number of peripheral links.
@@ -11040,7 +11040,7 @@
 
 
 #ifndef NRF_SDH_BLE_SERVICE_CHANGED
-#define NRF_SDH_BLE_SERVICE_CHANGED 1
+#define NRF_SDH_BLE_SERVICE_CHANGED 0
 #endif
 
 // </h>

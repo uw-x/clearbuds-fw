@@ -191,6 +191,9 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }
 
+static uint8_t bleRetryCounter = 0;
+static bool bleAttemptRetry = false;
+
 static void processQueue(void)
 {
   static bool streamStarted = false;
@@ -198,7 +201,7 @@ static void processQueue(void)
   if (!eventQueueIsEmpty()) {
     switch(eventQueueFront()) {
       case EVENT_ACCEL_MOTION:
-        NRF_LOG_RAW_INFO("%08d | motion\n", systemTimeGetMs());
+        NRF_LOG_RAW_INFO("%08d [accel] motion\n", systemTimeGetMs());
         break;
       case EVENT_ACCEL_STATIC:
         break;
@@ -207,7 +210,20 @@ static void processQueue(void)
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
-          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
+          if (bleCanTransmit()) {
+            bleAttemptRetry = false;
+            bleRetryCounter = 0;
+            bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
+          } else {
+            bleRetryCounter++;
+
+            if (bleRetryCounter == 1) {
+              bleAttemptRetry = true;
+            }
+            else {
+              NRF_LOG_RAW_INFO("%08d [ble] retry %d\n", systemTimeGetMs(), bleRetryCounter);
+            }
+          }
         }
 #endif
 
@@ -236,13 +252,27 @@ static void processQueue(void)
 
       case EVENT_BLE_DATA_STREAM_START:
         streamStarted = true;
-        NRF_LOG_RAW_INFO("stream start\n");
+        NRF_LOG_RAW_INFO("%08d [main] stream start\n", systemTimeGetMs());
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
         streamStarted = false;
-        NRF_LOG_RAW_INFO("stream stop\n");
+        NRF_LOG_RAW_INFO("%08d [main] stream stop\n", systemTimeGetMs());
         break;
+
+      case EVENT_BLE_RADIO_START:
+        // if (bleAttemptRetry && bleCanTransmit()) {
+        //   eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
+        // }
+        break;
+
+      case EVENT_BLE_SEND_DATA_DONE:
+        if (bleAttemptRetry && bleCanTransmit()) {
+          // NRF_LOG_RAW_INFO("%08d [ble] attempting retry\n", systemTimeGetMs());
+          eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
+        }
+        break;
+
 
       default:
         NRF_LOG_RAW_INFO("unhandled event\n");
