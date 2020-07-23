@@ -32,7 +32,7 @@
 #define FLASH_READ_BUFFER_SIZE 512
 
 // Audio
-// fs: 41667 Hz
+// fs: 50000 Hz
 #define PDM_BUFFER_LENGTH               (1000)
 
 // Stack
