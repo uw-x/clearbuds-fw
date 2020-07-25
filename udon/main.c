@@ -81,7 +81,7 @@
 #define FOUND_DEVICE_REFRESH_TIME APP_TIMER_TICKS(SCAN_LIST_REFRESH_INTERVAL) /**< Time after which the device list is clean and refreshed. */
 
 #define CLI_OVER_USB_CDC_ACM 1
-#define CLI_OVER_UART 1
+// #define CLI_OVER_UART 1
 
 #if CLI_OVER_USB_CDC_ACM
 #include "nrf_cli_cdc_acm.h"
@@ -91,9 +91,6 @@
 #include "app_usbd_string_desc.h"
 #include "app_usbd_cdc_acm.h"
 #endif //CLI_OVER_USB_CDC_ACM
-
-
-
 
 /**@brief Command line interface instance.
  */
@@ -131,8 +128,122 @@ NRF_CLI_DEF(m_cli_cdc_acm,
  * Configure if example supports USB port connection
  */
 #ifndef USBD_POWER_DETECTION
-#define USBD_POWER_DETECTION false
+#define USBD_POWER_DETECTION true
 #endif
+
+
+// PULLED FROM USBD_BLE_UART MAIN.C
+// USB DEFINES START
+static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
+                                    app_usbd_cdc_acm_user_event_t event);
+
+#define CDC_ACM_COMM_INTERFACE  0
+#define CDC_ACM_COMM_EPIN       NRF_DRV_USBD_EPIN2
+
+#define CDC_ACM_DATA_INTERFACE  1
+#define CDC_ACM_DATA_EPIN       NRF_DRV_USBD_EPIN1
+#define CDC_ACM_DATA_EPOUT      NRF_DRV_USBD_EPOUT1
+
+static char m_cdc_data_array[256];
+
+/** @brief CDC_ACM class instance */
+APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
+                            cdc_acm_user_ev_handler,
+                            CDC_ACM_COMM_INTERFACE,
+                            CDC_ACM_DATA_INTERFACE,
+                            CDC_ACM_COMM_EPIN,
+                            CDC_ACM_DATA_EPIN,
+                            CDC_ACM_DATA_EPOUT,
+                            APP_USBD_CDC_COMM_PROTOCOL_AT_V250);
+
+
+
+
+// USB CODE START
+static bool m_usb_connected = false;
+
+
+/** @brief User event handler @ref app_usbd_cdc_acm_user_ev_handler_t */
+static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
+                                    app_usbd_cdc_acm_user_event_t event)
+{
+    app_usbd_cdc_acm_t const * p_cdc_acm = app_usbd_cdc_acm_class_get(p_inst);
+
+    switch (event)
+    {
+        case APP_USBD_CDC_ACM_USER_EVT_PORT_OPEN:
+        {
+            /*Set up the first transfer*/
+            ret_code_t ret = app_usbd_cdc_acm_read(&m_app_cdc_acm,
+                                                   m_cdc_data_array,
+                                                   1);
+            UNUSED_VARIABLE(ret);
+            // ret = app_timer_stop(m_blink_cdc);
+            APP_ERROR_CHECK(ret);
+            // bsp_board_led_on(LED_CDC_ACM_CONN);
+            NRF_LOG_INFO("CDC ACM port opened");
+            break;
+        }
+
+        case APP_USBD_CDC_ACM_USER_EVT_PORT_CLOSE:
+            NRF_LOG_INFO("CDC ACM port closed");
+            if (m_usb_connected)
+            {
+                // ret_code_t ret = app_timer_start(m_blink_cdc,
+                //                                  APP_TIMER_TICKS(LED_BLINK_INTERVAL),
+                //                                  (void *) LED_CDC_ACM_CONN);
+                // APP_ERROR_CHECK(ret);
+            }
+            break;
+
+        case APP_USBD_CDC_ACM_USER_EVT_TX_DONE:
+            break;
+
+        case APP_USBD_CDC_ACM_USER_EVT_RX_DONE:
+        {
+            ret_code_t ret;
+            static uint8_t index = 0;
+            index++;
+
+            do
+            {
+                if ((m_cdc_data_array[index - 1] == '\n') ||
+                    (m_cdc_data_array[index - 1] == '\r') ||
+                    (index >= (256)))
+                {
+                    if (index > 1)
+                    {
+                        // bsp_board_led_invert(LED_CDC_ACM_RX);
+                        NRF_LOG_DEBUG("Ready to send data over BLE NUS");
+                        NRF_LOG_HEXDUMP_DEBUG(m_cdc_data_array, index);
+                    }
+
+                    index = 0;
+                }
+
+                /*Get amount of data transferred*/
+                size_t size = app_usbd_cdc_acm_rx_size(p_cdc_acm);
+                NRF_LOG_DEBUG("RX: size: %lu char: %c", size, m_cdc_data_array[index - 1]);
+
+                /* Fetch data until internal buffer is empty */
+                ret = app_usbd_cdc_acm_read(&m_app_cdc_acm,
+                                            &m_cdc_data_array[index],
+                                            1);
+                if (ret == NRF_SUCCESS)
+                {
+                    index++;
+                }
+            }
+            while (ret == NRF_SUCCESS);
+
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+
 
 
 static void usbd_user_ev_handler(app_usbd_event_type_t event)
@@ -200,7 +311,7 @@ static void cli_init(void)
 
 static void usbd_init(void)
 {
-#if CLI_OVER_USB_CDC_ACM
+
     ret_code_t ret;
     static const app_usbd_config_t usbd_config = {
         .ev_handler = app_usbd_event_execute,
@@ -209,10 +320,15 @@ static void usbd_init(void)
     ret = app_usbd_init(&usbd_config);
     APP_ERROR_CHECK(ret);
 
-    app_usbd_class_inst_t const * class_cdc_acm =
-            app_usbd_cdc_acm_class_inst_get(&nrf_cli_cdc_acm);
-    ret = app_usbd_class_append(class_cdc_acm);
+    app_usbd_class_inst_t const * class_cdc_acm_cli = app_usbd_cdc_acm_class_inst_get(&nrf_cli_cdc_acm);
+    ret = app_usbd_class_append(class_cdc_acm_cli);
     APP_ERROR_CHECK(ret);
+
+
+    // app_usbd_class_inst_t const * class_cdc_acm = app_usbd_cdc_acm_class_inst_get(&m_app_cdc_acm);
+    // ret = app_usbd_class_append(class_cdc_acm);
+    // APP_ERROR_CHECK(ret);
+
 
     if (USBD_POWER_DETECTION)
     {
@@ -228,7 +344,7 @@ static void usbd_init(void)
 
     /* Give some time for the host to enumerate and connect to the USB CDC port */
     nrf_delay_ms(1000);
-#endif
+
 }
 
 
@@ -304,6 +420,8 @@ static void idle_state_handler(void)
     {
         nrf_pwr_mgmt_run();
     }
+
+    // while (app_usbd_event_queue_process()) { /* Nothing to do */ }
 }
 
 
@@ -312,7 +430,12 @@ int main(void)
     power_management_init();
     log_init();
     timer_init();
+
+    // app_usbd_serial_num_generate();
+
     usbd_init();
+
+
     // Console start
     cli_init();
     cli_start();

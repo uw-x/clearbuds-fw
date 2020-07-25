@@ -378,8 +378,8 @@ void link_layer_data_length_set(char * p_data_length, uint16_t conn_handle)
     // Check that new data length has a correct value.
     if ((value > (mtu + L2CAP_HDR_LEN)) || (value < (BLE_GATT_ATT_MTU_DEFAULT + L2CAP_HDR_LEN)))
     {
-        NRF_LOG_RAW_INFO("Data Length value must be less than %d and bigger than %d\r\n", 
-                         (mtu + L2CAP_HDR_LEN), 
+        NRF_LOG_RAW_INFO("Data Length value must be less than %d and bigger than %d\r\n",
+                         (mtu + L2CAP_HDR_LEN),
                          (BLE_GATT_ATT_MTU_DEFAULT + L2CAP_HDR_LEN));
         return;
     }
@@ -490,10 +490,10 @@ static void uuid_print(uint16_t conn_handle, ble_gattc_service_t const * p_servi
 
     for (uint8_t i = 0; i < mp_device_srv[conn_handle]->count; i++)
     {
-        NRF_LOG_RAW_INFO("%s: %X %s: 0x%X\r\n", 
-                         "UUID", 
+        NRF_LOG_RAW_INFO("%s: %X %s: 0x%X\r\n",
+                         "UUID",
                          p_service[i].uuid.uuid,
-                         "type", 
+                         "type",
                          p_service[i].uuid.type);
     }
 }
@@ -502,7 +502,7 @@ static void characteristics_print(void)
 {
     for (uint8_t i = 0; i < m_srv_char.count; i++)
     {
-           ble_gatt_char_props_t const * p_char_props = 
+           ble_gatt_char_props_t const * p_char_props =
                                  &m_srv_char.char_data[i].char_props;
            NRF_LOG_RAW_INFO("Characteristic UUID: %X\r\n",
                             m_srv_char.char_data[i].uuid.uuid);
@@ -762,7 +762,7 @@ static void on_primary_srv_discovery_rsp(ble_gattc_evt_t const * p_ble_gattc_evt
     count = p_prim_serv->count;
 
     // If no more services are found.
-    if ((count != 0) && 
+    if ((count != 0) &&
         (p_ble_gattc_evt->gatt_status == BLE_GATT_STATUS_SUCCESS))
     {
         if ((count + offset) > MAX_SERVICE_COUNT)
@@ -818,10 +818,10 @@ static void on_primary_srv_discovery_rsp(ble_gattc_evt_t const * p_ble_gattc_evt
 
 /**@brief Function for starting a discovery of CCCD descriptors.
  *
- * @details If characteristics can be notified, then look for CCCD descriptors in all 
+ * @details If characteristics can be notified, then look for CCCD descriptors in all
  *          characteristics inside the service.
  *
- * @param[in] p_ble_gattc_evt 
+ * @param[in] p_ble_gattc_evt
  */
 static void cccd_descriptors_discovery(ble_gattc_evt_t const * p_ble_gattc_evt)
 {
@@ -976,11 +976,11 @@ static void on_descriptor_discovery_rsp(const ble_gattc_evt_t * const p_ble_gatt
                 {
                     m_srv_char.char_data[j].cccd_desc_handle =
                         p_ble_gattc_evt->params.desc_disc_rsp.descs[i].handle;
-                    
+
                     break;
                 }
             }
-            
+
             cccd_descriptors_discovery(p_ble_gattc_evt);
 
             return;
@@ -1138,7 +1138,6 @@ static void on_read_rsp(const ble_gattc_evt_t * const p_ble_gattc_evt)
     // The application only supports reading data of length less than MTU which was set for this connection.
 }
 
-
 /**@brief Function for handling a write response.
  *
  * @param[in] p_ble_gattc_evt   Pointer to the GATT Client event.
@@ -1164,6 +1163,7 @@ static void on_write_rsp(const ble_gattc_evt_t * const p_ble_gattc_evt)
 
 }
 
+// uint8_t dataString[256] = {0};
 
 static void on_ble_evt(uint16_t conn_handle, ble_evt_t const * p_ble_evt)
 {
@@ -1290,18 +1290,29 @@ static void on_ble_evt(uint16_t conn_handle, ble_evt_t const * p_ble_evt)
             }
 
             uint8_t data_len = p_ble_evt->evt.gattc_evt.params.hvx.len;
-            NRF_LOG_RAW_INFO(
-                "%s data: ",
-                (p_ble_evt->evt.gattc_evt.params.hvx.type !=
-                 BLE_GATT_HVX_NOTIFICATION) ? "Indication" : "Notification");
+            // NRF_LOG_RAW_INFO(
+            //     "%s data: ",
+            //     (p_ble_evt->evt.gattc_evt.params.hvx.type !=
+            //      BLE_GATT_HVX_NOTIFICATION) ? "i" : "n");
+
+            NRF_LOG_RAW_INFO("data ")
+            // memset(dataString, 0, 256);
+
 
             // Display notifications or indication data.
-            for (uint8_t i = 0; i < data_len; i++)
-            {
-                NRF_LOG_RAW_INFO("%d ", p_ble_evt->evt.gattc_evt.params.hvx.data[i]);
-            }
+            // for (uint8_t i = 0; i < data_len; i++)
+            // {
+            //   // snprintf()
+            //     // NRF_LOG_RAW_INFO("%d ", p_ble_evt->evt.gattc_evt.params.hvx.data[i]);
+            //     NRF_LOG_HEXDUMP_INFO(p_ble_evt->evt.gattc_evt.params.hvx.data, data_len);
+            //     // NRF_LOG_RAW_INFO("%s", NRF_LOG_HEXDUMP_INFO(p_ble_evt->evt.gattc_evt.params.hvx.data, data_len));
+            // }
+            NRF_LOG_RAW_HEXDUMP_INFO(p_ble_evt->evt.gattc_evt.params.hvx.data, data_len);
 
-            NRF_LOG_RAW_INFO("\r\n");
+            // send in more efficient format
+            // maybe snprintf it and put it in a giant string?
+
+            // NRF_LOG_RAW_INFO("\r\n");
         }
         break;
 
@@ -1368,7 +1379,7 @@ static void on_ble_central_evt(ble_evt_t const * p_ble_evt)
                 // Initiate connection.
                 NRF_LOG_INFO("CENTRAL: Connecting...");
                 err_code = sd_ble_gap_connect(&p_gap_evt->params.adv_report.peer_addr,
-                                              &m_scan.scan_params, 
+                                              &m_scan.scan_params,
                                               &m_connection_param,
                                               APP_BLE_CONN_CFG_TAG);
 

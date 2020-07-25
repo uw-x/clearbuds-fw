@@ -55,15 +55,15 @@
 #include "ble_advertising.h"
 #include "peer_manager.h"
 
-#define MIN_CONNECTION_INTERVAL (uint16_t)MSEC_TO_UNITS(NRF_BLE_SCAN_MIN_CONNECTION_INTERVAL, UNIT_1_25_MS)  /**< Determines minimum connection interval in milliseconds. */
-#define MAX_CONNECTION_INTERVAL (uint16_t)MSEC_TO_UNITS(NRF_BLE_SCAN_MAX_CONNECTION_INTERVAL, UNIT_1_25_MS)  /**< Determines maximum connection interval in milliseconds. */
+#define MIN_CONNECTION_INTERVAL (uint16_t)MSEC_TO_UNITS(7.5, UNIT_1_25_MS)  /**< Determines minimum connection interval in milliseconds. */
+#define MAX_CONNECTION_INTERVAL (uint16_t)MSEC_TO_UNITS(15, UNIT_1_25_MS)  /**< Determines maximum connection interval in milliseconds. */
 #define SLAVE_LATENCY           NRF_BLE_SCAN_SLAVE_LATENCY                                                   /**< Determines slave latency in terms of connection events. */
-#define SUPERVISION_TIMEOUT     (uint16_t)MSEC_TO_UNITS(NRF_BLE_SCAN_SUPERVISION_TIMEOUT, UNIT_10_MS)        /**< Determines supervision time-out in units of 10 milliseconds. */
+#define SUPERVISION_TIMEOUT     (uint16_t)MSEC_TO_UNITS(4000, UNIT_10_MS)        /**< Determines supervision time-out in units of 10 milliseconds. */
 
 /**@brief The maximum number of peripheral and central links combined.
  */
 #define NRF_BLE_LINK_COUNT      (NRF_SDH_BLE_PERIPHERAL_LINK_COUNT + NRF_SDH_BLE_CENTRAL_LINK_COUNT)
-#define ADDR_STRING_LEN         (2 * (BLE_GAP_ADDR_LEN)+6)                                           /**< Determines device BLE address length in string format. Address formatting: XX:XX:XX:XX:XX:XX. 
+#define ADDR_STRING_LEN         (2 * (BLE_GAP_ADDR_LEN)+6)                                           /**< Determines device BLE address length in string format. Address formatting: XX:XX:XX:XX:XX:XX.
                                                                                                           The hex number in the string format takes twice as much space. 6 is added in place of ":" or spaces beetwen numbers and for the string terminator. */
 #define HEX_BYTE_STRING_LEN     (3)                                                                  /**< Determines string length for a 1-byte hex number. */
 
