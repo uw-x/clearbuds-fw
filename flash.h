@@ -1,6 +1,6 @@
 #include "spi.h"
 
-#define FLASH_INTERNAL_BASE_ADDRESS 0x60000
+#define FLASH_INTERNAL_BASE_ADDRESS 0x50000
 
 void flashExternalEraseAll(void);
 void flashExternalErase(uint32_t address);
