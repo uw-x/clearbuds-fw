@@ -11,6 +11,7 @@ import pcm_to_wav
 
 if __name__ == '__main__':
   try:
+    # Grab user input for serial port
     ports = serial.tools.list_ports.comports()
 
     i = 1
@@ -39,10 +40,11 @@ if __name__ == '__main__':
     f = open("output.txt","w+")
     trailingSample = None
 
+    # Start streaming
     while True:
       data = ser.read(ser.in_waiting+2)
 
-      # if there's a trailing sample prepend it to data
+      # If there's a trailing sample prepend it to the data
       if (trailingSample):
         data.insert(0, trailingSample)
 
@@ -56,9 +58,6 @@ if __name__ == '__main__':
         sample = struct.unpack('>h', bits)[0]
         f.write(str(sample)+"\n")
         print(sample)
-        # printBytes = ":".join("{:02x}".format(ord(c)) for c in data[i+1] + data[i])
-        # print(str(sample)+" "+printBytes+"\n")
-
 
   # Cleanup
   except KeyboardInterrupt:
