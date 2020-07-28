@@ -64,7 +64,6 @@ accelGenericInterrupt_t accelInterrupt1 = {
 };
 
 static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
-static int16_t* micData;
 
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
@@ -157,8 +156,8 @@ static void idle(void)
   }
 }
 
-#define MIC_TO_FLASH
-// #define MIC_TO_BLE
+// #define MIC_TO_FLASH
+#define MIC_TO_BLE
 
 static void shioInit(void)
 {
@@ -196,6 +195,8 @@ static void shioInit(void)
 
 static uint8_t bleRetryCounter = 0;
 static bool bleAttemptRetry = false;
+// static int16_t* micData;
+static int16_t micData[PDM_BUFFER_LENGTH];
 
 static void processQueue(void)
 {
@@ -211,7 +212,8 @@ static void processQueue(void)
       case EVENT_ACCEL_STATIC:
         break;
       case EVENT_AUDIO_MIC_DATA_READY:
-        micData = audioGetMicData();
+        // micData = audioGetMicData();
+        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_BUFFER_LENGTH);
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
@@ -220,14 +222,14 @@ static void processQueue(void)
             bleRetryCounter = 0;
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
           } else {
-            bleRetryCounter++;
+            // bleRetryCounter++;
 
-            if (bleRetryCounter == 1) {
-              bleAttemptRetry = true;
-            }
-            else {
-              NRF_LOG_RAW_INFO("%08d [ble] retry %d\n", systemTimeGetMs(), bleRetryCounter);
-            }
+            // if (bleRetryCounter == 1) {
+            //   bleAttemptRetry = true;
+            // }
+            // else {
+              NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
+            // }
           }
         }
 #endif
@@ -258,6 +260,7 @@ static void processQueue(void)
       case EVENT_BLE_DATA_STREAM_START:
 #ifdef MIC_TO_BLE
         streamStarted = true;
+        audioStart();
 #endif
         NRF_LOG_RAW_INFO("%08d [main] stream start\n", systemTimeGetMs());
         break;
@@ -276,10 +279,9 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
-        if (bleAttemptRetry && bleCanTransmit()) {
-          // NRF_LOG_RAW_INFO("%08d [ble] attempting retry\n", systemTimeGetMs());
-          eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
-        }
+        // if (bleAttemptRetry && bleCanTransmit()) {
+        //   eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
+        // }
         break;
 
 

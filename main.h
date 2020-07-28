@@ -33,7 +33,7 @@
 
 // Audio
 // fs: 50000 Hz
-#define PDM_BUFFER_LENGTH               (512)
+#define PDM_BUFFER_LENGTH               (2000)
 
 // Stack
 #define DEAD_BEEF                       0xDEADBEEF                              /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */

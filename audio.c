@@ -65,6 +65,11 @@ void audioInit(void)
   gpioWrite(MIC_EN_PIN, 1);
   delayMs(1);
 
+  NRF_LOG_RAW_INFO("[audio] initialized\n");
+}
+
+void audioStart(void)
+{
   nrfx_err_t errorStatus;
   nrfx_pdm_config_t pdmConfig = NRFX_PDM_DEFAULT_CONFIG(PDM_CLK_PIN, PDM_DATA_PIN);
   errorStatus = nrfx_pdm_init(&pdmConfig, (nrfx_pdm_event_handler_t) pdmEventHandler);
@@ -75,8 +80,6 @@ void audioInit(void)
 
   errorStatus = nrfx_pdm_start();
   ASSERT(errorStatus == NRFX_SUCCESS);
-
-  NRF_LOG_RAW_INFO("[audio] initialized\n");
 }
 
 void audioDeInit(void)

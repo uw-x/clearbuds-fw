@@ -9,29 +9,6 @@ import numpy as np
 from scipy.io.wavfile import write
 import pcm_to_wav
 
-class ReadLine:
-    def __init__(self, s):
-        self.buf = bytearray()
-        self.s = s
-
-    def readline(self):
-        i = self.buf.find(b"\n")
-        if i >= 0:
-            r = self.buf[:i+1]
-            self.buf = self.buf[i+1:]
-            return r
-        while True:
-            i = max(1, min(2048, self.s.in_waiting))
-            data = self.s.read(i)
-            i = data.find(b"\n")
-            if i >= 0:
-                r = self.buf + data[:i+1]
-                self.buf[0:] = data[i+1:]
-                return r
-            else:
-                self.buf.extend(data)
-
-
 if __name__ == '__main__':
   try:
     ports = serial.tools.list_ports.comports()
@@ -57,21 +34,36 @@ if __name__ == '__main__':
 
     portName = ports[port].device
     ser = serial.Serial(portName)
-    rl = ReadLine(ser)
 
     # Create output file
     f = open("output.txt","w+")
+    trailingSample = None
 
     while True:
-      data = rl.readline()
+      data = ser.read(ser.in_waiting+2)
 
-      for i in range (0, len(data)-1, 2):
-        sample = struct.unpack('>h', data[i:(i+2)])[0]
+      # if there's a trailing sample prepend it to data
+      if (trailingSample):
+        data.insert(0, trailingSample)
+
+      for i in range (0, len(data), 2):
+        if ((i+1) == len(data)):
+          trailingSample = data[i]
+          break
+
+        trailingSample = None
+        bits = str(data[i+1]) + str(data[i])
+        sample = struct.unpack('>h', bits)[0]
         f.write(str(sample)+"\n")
         print(sample)
+        # printBytes = ":".join("{:02x}".format(ord(c)) for c in data[i+1] + data[i])
+        # print(str(sample)+" "+printBytes+"\n")
+
 
   # Cleanup
   except KeyboardInterrupt:
+    ser.close()
     print("Writing to output.wav and exiting...")
     os.system("python pcm_to_wav.py output.txt")
     f.close()
+
