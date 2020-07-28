@@ -193,8 +193,7 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }
 
-static uint8_t bleRetryCounter = 0;
-static bool bleAttemptRetry = false;
+static bool bleRetry = false;
 // static int16_t* micData;
 static int16_t micData[PDM_BUFFER_LENGTH];
 
@@ -212,24 +211,18 @@ static void processQueue(void)
       case EVENT_ACCEL_STATIC:
         break;
       case EVENT_AUDIO_MIC_DATA_READY:
-        // micData = audioGetMicData();
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_BUFFER_LENGTH);
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
-          if (bleCanTransmit()) {
-            bleAttemptRetry = false;
-            bleRetryCounter = 0;
+          if (bleCanTransmit() && !bleRetry) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
           } else {
-            // bleRetryCounter++;
-
-            // if (bleRetryCounter == 1) {
-            //   bleAttemptRetry = true;
-            // }
-            // else {
+            if (!bleRetry) {
+              bleRetry = true;
+            } else {
               NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
-            // }
+            }
           }
         }
 #endif
@@ -273,15 +266,16 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_RADIO_START:
-        // if (bleAttemptRetry && bleCanTransmit()) {
+        // if (bleRetry && bleCanTransmit()) {
         //   eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
         // }
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
-        // if (bleAttemptRetry && bleCanTransmit()) {
-        //   eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
-        // }
+        if (bleRetry && bleCanTransmit()) {
+          bleRetry = false;
+          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
+        }
         break;
 
 
