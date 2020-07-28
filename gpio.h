@@ -8,15 +8,21 @@
 #define PDM_DATA_PIN                     NRF_GPIO_PIN_MAP(1,9)
 
 // SPI
-#define SPI_SCK_PIN                    NRF_GPIO_PIN_MAP(0,4)
-#define SPI_MOSI_PIN                   NRF_GPIO_PIN_MAP(0,26)
-#define SPI_MISO_PIN                   NRF_GPIO_PIN_MAP(0,27)
-#define SPI_CS_PIN                     NRF_GPIO_PIN_MAP(0,28)
+#define SPI_SCK_PIN                      NRF_GPIO_PIN_MAP(0,4)
+#define SPI_MOSI_PIN                     NRF_GPIO_PIN_MAP(0,26)
+#define SPI_MISO_PIN                     NRF_GPIO_PIN_MAP(0,27)
+#define SPI_CS_PIN                       NRF_GPIO_PIN_MAP(0,28)
 
 // ACCEL
 #define ACCEL_EN_PIN                     NRF_GPIO_PIN_MAP(1, 4)
 #define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 7)
 #define ACCEL_INT2_PIN                   NRF_GPIO_PIN_MAP(1, 6)
+
+// TRACE
+#define GPIO_1_PIN                       NRF_GPIO_PIN_MAP(0, 5)
+#define GPIO_2_PIN                       NRF_GPIO_PIN_MAP(0, 6)
+#define GPIO_3_PIN                       NRF_GPIO_PIN_MAP(0, 7)
+#define GPIO_4_PIN                       NRF_GPIO_PIN_MAP(0, 8)
 
 // QSPI
 // These are located in sdk_config.h. They're placed here just for reference.

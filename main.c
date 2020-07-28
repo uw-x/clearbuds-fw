@@ -167,6 +167,8 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("[shio] booting...\n");
   timersInit();
   gpioInit();
+  gpioOutputEnable(GPIO_1_PIN);
+  gpioWrite(GPIO_1_PIN, 0); // booting
   eventQueueInit();
   buttons_leds_init(&erase_bonds);
 
@@ -189,7 +191,7 @@ static void shioInit(void)
   bleInit();
   bleAdvertisingStart();
 #endif
-
+  gpioWrite(GPIO_1_PIN, 1); // finished booting
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }
 
