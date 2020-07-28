@@ -196,7 +196,9 @@ static bool bleAttemptRetry = false;
 
 static void processQueue(void)
 {
+#ifdef MIC_TO_BLE
   static bool streamStarted = false;
+#endif
 
   if (!eventQueueIsEmpty()) {
     switch(eventQueueFront()) {
@@ -251,12 +253,16 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_DATA_STREAM_START:
+#ifdef MIC_TO_BLE
         streamStarted = true;
+#endif
         NRF_LOG_RAW_INFO("%08d [main] stream start\n", systemTimeGetMs());
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
+#ifdef MIC_TO_BLE
         streamStarted = false;
+#endif
         NRF_LOG_RAW_INFO("%08d [main] stream stop\n", systemTimeGetMs());
         break;
 

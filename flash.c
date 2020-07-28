@@ -161,7 +161,7 @@ void flashInternalWrite(uint32_t address, uint8_t* data, uint32_t length)
 
   if (internalTransferDone) {
     ret_code_t rc = nrf_fstorage_write(&flashInternalInstance, address, data, length, NULL);
-    if (rc != NRF_SUCCESS) { NRF_LOG_RAW_INFO("[flash] error while writing\n"); }
+    if (rc != NRF_SUCCESS) { NRF_LOG_RAW_INFO("[flash] error while writing code:%d\n", rc); }
   } else {
     NRF_LOG_RAW_INFO("[flash] internal flash busy, dumping buffer\n");
   }
