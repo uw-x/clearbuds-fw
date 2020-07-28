@@ -1,42 +1,3 @@
-/**
- * Copyright (c) 2018 - 2019, Nordic Semiconductor ASA
- *
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form, except as embedded into a Nordic
- *    Semiconductor ASA integrated circuit in a product or a software update for
- *    such product, must reproduce the above copyright notice, this list of
- *    conditions and the following disclaimer in the documentation and/or other
- *    materials provided with the distribution.
- *
- * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * 4. This software, with or without modification, must only be used with a
- *    Nordic Semiconductor ASA integrated circuit.
- *
- * 5. Any software provided in binary form under this license must not be reverse
- *    engineered, decompiled, modified and/or disassembled.
- *
- * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
 
 #include <ctype.h>
 #include "cli_m.h"
@@ -50,6 +11,7 @@
 #include "nfc_m.h"
 #include "nfc_central_m.h"
 #include "adafruit_pn532.h"
+#include "main.h"
 
 #define UNKNOWN_PARAMETER     "unknown parameter: "
 #define WRONG_PARAMETER_COUNT "wrong parameter count \n"
@@ -572,7 +534,7 @@ static void cmd_privacy_off(nrf_cli_t const * p_cli, size_t argc, char ** argv)
     ret_code_t               err_code;
     ble_gap_privacy_params_t privacy_params;
 
-     // Privacy settings cannot be changed while advertising, scanning, or creating a connection. 
+     // Privacy settings cannot be changed while advertising, scanning, or creating a connection.
     scan_stop();
     adv_stop();
 
@@ -1163,7 +1125,7 @@ static void cmd_min_conn_interval_set(nrf_cli_t const * p_cli, size_t argc, char
     value = (uint16_t)MSEC_TO_UNITS(atoi(argv[1]), UNIT_1_25_MS);
 
     // Checking the value is within the required range.
-    if ((value < MSEC_TO_UNITS(BLE_GAP_CP_MIN_CONN_INTVL_MIN, UNIT_1_25_MS)) || 
+    if ((value < MSEC_TO_UNITS(BLE_GAP_CP_MIN_CONN_INTVL_MIN, UNIT_1_25_MS)) ||
         (value > MSEC_TO_UNITS(BLE_GAP_CP_MIN_CONN_INTVL_MAX, UNIT_1_25_MS)))
     {
         nrf_cli_fprintf(p_cli, NRF_CLI_ERROR, "%s %d and %d.\n",
@@ -1201,7 +1163,7 @@ static void cmd_max_conn_interval_set(nrf_cli_t const * p_cli, size_t argc, char
     value = (uint16_t)MSEC_TO_UNITS(atoi(argv[1]), UNIT_1_25_MS);
 
     // Checking whether the value is within the required range.
-    if ((value < MSEC_TO_UNITS(BLE_GAP_CP_MAX_CONN_INTVL_MIN, UNIT_1_25_MS)) || 
+    if ((value < MSEC_TO_UNITS(BLE_GAP_CP_MAX_CONN_INTVL_MIN, UNIT_1_25_MS)) ||
         (value > MSEC_TO_UNITS(BLE_GAP_CP_MAX_CONN_INTVL_MAX, UNIT_1_25_MS)))
     {
         nrf_cli_fprintf(p_cli, NRF_CLI_ERROR, "%s %d and %d.\n",
@@ -1550,7 +1512,7 @@ static void cmd_key_reply(nrf_cli_t const * p_cli, size_t argc, char ** argv)
         key[i] = argv[1][i];
     }
 
-    // Reply with an authentication key. 
+    // Reply with an authentication key.
     err_code = sd_ble_gap_auth_key_reply(m_conn_handle,
                                          BLE_GAP_AUTH_KEY_TYPE_PASSKEY,
                                          key);
@@ -1913,6 +1875,11 @@ static void pairing_get(size_t idx, nrf_cli_static_entry_t * p_static)
     p_static->p_help   = NULL;
 }
 
+static void cmd_scratchpad(nrf_cli_t const * p_cli, size_t argc, char ** argv)
+{
+  mainScratchpad();
+}
+
 
 /* Creating dynamic subcommands (level 2) */
 NRF_CLI_CREATE_DYNAMIC_CMD(m_sub_connect_addr_collection, connect_addr_get);
@@ -2096,7 +2063,7 @@ NRF_CLI_CMD_REGISTER(parameters,
                      &m_sub_parameters,
                      "<subcmd> Change connection and link layer parameters.",
                      cmd_parameters);
-NRF_CLI_CMD_REGISTER(bonded_devices, 
+NRF_CLI_CMD_REGISTER(bonded_devices,
                      NULL,
                      "List bonded devices (The devices are identified by public address).",
                      cmd_bonded_devices_display);
@@ -2108,6 +2075,7 @@ NRF_CLI_CMD_REGISTER(pair,
                      "<subcmd> <address> <option> Start pairing with a evice.",
                      cmd_device_pair);
 NRF_CLI_CMD_REGISTER(device_name, NULL, "<name> Set device name.", cmd_device_name_set);
+NRF_CLI_CMD_REGISTER(scratchpad, NULL, "scratchpad", cmd_scratchpad);
 NRF_CLI_CMD_REGISTER(advertise, &m_sub_advertise, "Turn advertising <on/off>.", cmd_advertise);
 NRF_CLI_CMD_REGISTER(scan, &m_sub_scan, "Scan options", cmd_scan);
 NRF_CLI_CMD_REGISTER(connect,
