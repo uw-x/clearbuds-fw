@@ -32,12 +32,10 @@
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
 #include "nrf_pwr_mgmt.h"
-
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 #include "nrf_drv_clock.h"
-
 #include "draw.h"
 #include "ble_manager.h"
 #include "timers.h"
@@ -50,6 +48,12 @@
 #include "main.h"
 
 #define SECONDS_TO_RECORD 3
+#define MIC_TO_BLE
+// #define MIC_TO_FLASH
+
+static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
+static int16_t micData[PDM_BUFFER_LENGTH];
+static bool bleRetry = false;
 
 accelGenericInterrupt_t accelInterrupt1 = {
   .pin = ACCEL_INT1,
@@ -62,8 +66,6 @@ accelGenericInterrupt_t accelInterrupt1 = {
   .threshold = 0x3,
   .duration = 0x7,
 };
-
-static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
 
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
@@ -156,9 +158,6 @@ static void idle(void)
   }
 }
 
-// #define MIC_TO_FLASH
-#define MIC_TO_BLE
-
 static void shioInit(void)
 {
   bool erase_bonds;
@@ -171,7 +170,6 @@ static void shioInit(void)
   gpioWrite(GPIO_1_PIN, 0); // booting
   eventQueueInit();
   buttons_leds_init(&erase_bonds);
-
   flashInternalInit();
 
 #ifdef MIC_TO_FLASH
@@ -182,22 +180,17 @@ static void shioInit(void)
   spiInit();
   accelInit();
   accelGenericInterruptEnable(&accelInterrupt1);
-
   APP_ERROR_CHECK(nrf_drv_clock_init());
-
   powerInit();
 
 #ifdef MIC_TO_BLE
   bleInit();
   bleAdvertisingStart();
 #endif
+
   gpioWrite(GPIO_1_PIN, 1); // finished booting
   NRF_LOG_RAW_INFO("[shio] booted\n");
 }
-
-static bool bleRetry = false;
-// static int16_t* micData;
-static int16_t micData[PDM_BUFFER_LENGTH];
 
 static void processQueue(void)
 {
@@ -210,8 +203,10 @@ static void processQueue(void)
       case EVENT_ACCEL_MOTION:
         NRF_LOG_RAW_INFO("%08d [accel] motion\n", systemTimeGetMs());
         break;
+
       case EVENT_ACCEL_STATIC:
         break;
+
       case EVENT_AUDIO_MIC_DATA_READY:
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_BUFFER_LENGTH);
 
@@ -257,20 +252,18 @@ static void processQueue(void)
         streamStarted = true;
         audioStart();
 #endif
-        NRF_LOG_RAW_INFO("%08d [main] stream start\n", systemTimeGetMs());
+        NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
 #ifdef MIC_TO_BLE
         streamStarted = false;
 #endif
-        NRF_LOG_RAW_INFO("%08d [main] stream stop\n", systemTimeGetMs());
+        NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
         break;
 
       case EVENT_BLE_RADIO_START:
-        // if (bleRetry && bleCanTransmit()) {
-        //   eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
-        // }
+        // Event that fires whenever the radio starts up
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
@@ -279,7 +272,6 @@ static void processQueue(void)
           bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
         }
         break;
-
 
       default:
         NRF_LOG_RAW_INFO("unhandled event\n");

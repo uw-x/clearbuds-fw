@@ -80,10 +80,14 @@ void audioStart(void)
 
   errorStatus = nrfx_pdm_start();
   ASSERT(errorStatus == NRFX_SUCCESS);
+
+  NRF_LOG_RAW_INFO("[audio] pdm start\n");
 }
 
 void audioDeInit(void)
 {
   nrfx_pdm_stop();
   nrfx_pdm_uninit();
+  gpioWrite(MIC_EN_PIN, 0);
+  NRF_LOG_RAW_INFO("[audio] deinitialized\n");
 }
