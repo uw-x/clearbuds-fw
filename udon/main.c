@@ -42,31 +42,38 @@
 #include "pm_m.h"
 #include "nfc_m.h"
 #include "nfc_central_m.h"
+#include "nrf_cli_uart.h"
 
 #define LED_BLE_NUS_CONN (BSP_BOARD_LED_0)
 #define LED_BLE_NUS_RX   (BSP_BOARD_LED_1)
 #define LED_CDC_ACM_CONN (BSP_BOARD_LED_2)
 #define LED_CDC_ACM_RX   (BSP_BOARD_LED_3)
-
 #define LED_BLINK_INTERVAL 800
-
-APP_TIMER_DEF(m_blink_ble);
-APP_TIMER_DEF(m_blink_cdc);
-
 #define ENDLINE_STRING "\r\n"
-
-// USB DEFINES START
-static volatile bool m_usb_connected = false;
-static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
-                                    app_usbd_cdc_acm_user_event_t event);
-
 #define CDC_ACM_COMM_INTERFACE  0
 #define CDC_ACM_COMM_EPIN       NRF_DRV_USBD_EPIN2
-
 #define CDC_ACM_DATA_INTERFACE  1
 #define CDC_ACM_DATA_EPIN       NRF_DRV_USBD_EPIN1
 #define CDC_ACM_DATA_EPOUT      NRF_DRV_USBD_EPOUT1
+#define CLI_OVER_UART 1
+#define CLI_EXAMPLE_LOG_QUEUE_SIZE  (4)
+#define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
 
+APP_TIMER_DEF(m_blink_ble);
+APP_TIMER_DEF(m_blink_cdc);
+NRF_CLI_UART_DEF(m_cli_uart_transport, 0, 64, 16);
+NRF_CLI_DEF(m_cli_uart, "udon] ", &m_cli_uart_transport.transport, '\r', CLI_LOG_QUEUE_SIZE);
+BLE_NUS_DEF(m_nus, NRF_SDH_BLE_TOTAL_LINK_COUNT);                                   /**< BLE NUS service instance. */
+NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
+BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
+
+static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
+static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
+static volatile bool usbPortOpened = false;
+static volatile bool m_usb_connected = false;
+static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
+                                    app_usbd_cdc_acm_user_event_t event);
 static char m_cdc_data_array[BLE_NUS_MAX_DATA_LEN];
 
 /** @brief CDC_ACM class instance */
@@ -79,9 +86,6 @@ APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
                             CDC_ACM_DATA_EPOUT,
                             APP_USBD_CDC_COMM_PROTOCOL_AT_V250);
 
-// USB DEFINES END
-
-static volatile bool usbPortOpened = false;
 char testBytes[5] = { 'a', 'b', 'c', '\r', '\n' };
 char testBytes2[244] = {0xF4,0x00,0xF5,0x00,0xF6,0x00,0xF7,0x00,0xF8,0x00,0xF9,0x00,0xFA,0x00,0xFB,0x00,0xFC,0x00,
                         0xFD,0x00,0xFE,0x00,0xFF,0x00,0x00,0x01,0x01,0x01,0x02,0x01,0x03,0x01,0x04,0x01,0x05,0x01,
@@ -97,6 +101,7 @@ char testBytes2[244] = {0xF4,0x00,0xF5,0x00,0xF6,0x00,0xF7,0x00,0xF8,0x00,0xF9,0
                         0x57,0x01,0x58,0x01,0x59,0x01,0x5A,0x01,0x5B,0x01,0x5C,0x01,0x5D,0x01,0x5E,0x01,0x5F,0x01,
                         0x60,0x01,0x61,0x01,0x62,0x01,0x63,0x01,0x64,0x01,0x65,0x01,0x66,0x01,0x67,0x01,0x68,0x01,
                         0x69,0x01,0x6A,0x01,0x6B,0x01,0x6C,0x01,0x6D,0x01};
+uint8_t usbDataBuffer[512] = {0};
 
 void blink_handler(void * p_context)
 {
@@ -112,79 +117,14 @@ void mainScratchpad()
   }
 }
 
-// void usbSendData(uint8_t * data, uint16_t length)
-// {
-//   if (m_usb_connected && usbPortOpened) {
-//     int j = 0;
-
-//     for (int ii = 0; ii < 4; ii++) {
-//       for (int i = 65; i < 126; i++) {
-//         testBytes2[j++] = i;
-//       }
-//     }
-
-//     // NRF_LOG_INFO("[usb] send data");
-//     // ret_code_t err_code = app_usbd_cdc_acm_write(&m_app_cdc_acm, data, length);
-//     ret_code_t err_code = app_usbd_cdc_acm_write(&m_app_cdc_acm, testBytes2, 240);
-//     APP_ERROR_CHECK(err_code);
-//   }
-// }
-
-
-uint8_t usbDataBuffer[512] = {0};
-
 void usbSendData(uint8_t * data, uint16_t length)
 {
   if (m_usb_connected && usbPortOpened) {
     memcpy(usbDataBuffer, data, length);
-    // memcpy(usbDataBuffer + length, ENDLINE_STRING, sizeof(ENDLINE_STRING));
-    // length += sizeof(ENDLINE_STRING);
     ret_code_t err_code = app_usbd_cdc_acm_write(&m_app_cdc_acm, usbDataBuffer, length);
     APP_ERROR_CHECK(err_code);
   }
 }
-
-// CLI DEFINES
-
-#define CLI_OVER_UART 1
-
-#define CLI_EXAMPLE_LOG_QUEUE_SIZE  (4)
-
-#if CLI_OVER_UART
-NRF_CLI_UART_DEF(m_cli_uart_transport, 0, 64, 16);
-NRF_CLI_DEF(m_cli_uart, "udon] ", &m_cli_uart_transport.transport, '\r', CLI_LOG_QUEUE_SIZE);
-#endif
-
-
-#if CLI_OVER_USB_CDC_ACM
-NRF_CLI_CDC_ACM_DEF(m_cli_cdc_acm_transport);
-NRF_CLI_DEF(m_cli_cdc_acm,
-            "udon] ",
-            &m_cli_cdc_acm_transport.transport,
-            '\r',
-            CLI_EXAMPLE_LOG_QUEUE_SIZE);
-#endif //CLI_OVER_USB_CDC_ACM
-
-#if CLI_OVER_UART
-#include "nrf_cli_uart.h"
-#endif
-
-// CLI DEFINES END
-
-#define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
-#define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
-
-
-BLE_NUS_DEF(m_nus, NRF_SDH_BLE_TOTAL_LINK_COUNT);                                   /**< BLE NUS service instance. */
-NRF_BLE_GATT_DEF(m_gatt);                                                           /**< GATT module instance. */
-BLE_ADVERTISING_DEF(m_advertising);                                                 /**< Advertising module instance. */
-
-static uint16_t   m_conn_handle          = BLE_CONN_HANDLE_INVALID;                 /**< Handle of the current connection. */
-static uint16_t   m_ble_nus_max_data_len = BLE_GATT_ATT_MTU_DEFAULT - 3;            /**< Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
-
-
-
-// BLE DEFINES END
 
 /** @brief Function for initializing the timer module. */
 static void timers_init(void)
@@ -197,49 +137,6 @@ static void timers_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-// /**
-//  * @brief Function for handling the data from the Nordic UART Service.
-//  *
-//  * @details This function processes the data received from the Nordic UART BLE Service and sends
-//  *          it to the USBD CDC ACM module.
-//  *
-//  * @param[in] p_evt Nordic UART Service event.
-//  */
-// static void nus_data_handler(ble_nus_evt_t * p_evt)
-// {
-
-//     if (p_evt->type == BLE_NUS_EVT_RX_DATA)
-//     {
-//         bsp_board_led_invert(LED_BLE_NUS_RX);
-//         NRF_LOG_DEBUG("Received data from BLE NUS. Writing data on CDC ACM.");
-//         // NRF_LOG_RAW_INFO("%c", p_evt->params.rx_data.p_data[i]);
-//         NRF_LOG_HEXDUMP_DEBUG(p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
-//         memcpy(m_nus_data_array, p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
-
-//         // Add endline characters
-//         uint16_t length = p_evt->params.rx_data.length;
-//         if (length + sizeof(ENDLINE_STRING) < BLE_NUS_MAX_DATA_LEN)
-//         {
-//             memcpy(m_nus_data_array + length, ENDLINE_STRING, sizeof(ENDLINE_STRING));
-//             length += sizeof(ENDLINE_STRING);
-//         }
-
-//         // Send data through CDC ACM
-//         ret_code_t ret = app_usbd_cdc_acm_write(&m_app_cdc_acm,
-//                                                 m_nus_data_array,
-//                                                 length);
-//         if(ret != NRF_SUCCESS)
-//         {
-//             NRF_LOG_INFO("CDC ACM unavailable, data received: %s", m_nus_data_array);
-//         }
-//     }
-// }
-
-/**
- * @brief Function for putting the chip into sleep mode.
- *
- * @note This function does not return.
- */
 static void sleep_mode_enter(void)
 {
     uint32_t err_code = bsp_indication_set(BSP_INDICATE_IDLE);
@@ -254,7 +151,6 @@ static void sleep_mode_enter(void)
     APP_ERROR_CHECK(err_code);
 }
 
-/** @brief Function for handling events from the GATT library. */
 void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 {
     if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
@@ -267,8 +163,6 @@ void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
                   p_gatt->att_mtu_desired_periph);
 }
 
-
-/** @brief Function for initializing the GATT library. */
 void gatt_init(void)
 {
     ret_code_t err_code;
@@ -280,12 +174,6 @@ void gatt_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
-/**
- * @brief Function for handling events from the BSP module.
- *
- * @param[in]   event   Event generated by button press.
- */
 void bsp_event_handler(bsp_event_t event)
 {
     uint32_t err_code;
@@ -319,15 +207,12 @@ void bsp_event_handler(bsp_event_t event)
     }
 }
 
-/** @brief Function for initializing buttons and LEDs. */
 static void buttons_leds_init(void)
 {
     uint32_t err_code = bsp_init(BSP_INIT_LEDS, bsp_event_handler);
     APP_ERROR_CHECK(err_code);
 }
 
-
-/** @brief Function for initializing the nrf_log module. */
 static void log_init(void)
 {
     ret_code_t err_code = NRF_LOG_INIT(NULL);
@@ -336,22 +221,12 @@ static void log_init(void)
     // NRF_LOG_DEFAULT_BACKENDS_INIT();
 }
 
-
-/** @brief Function for placing the application in low power state while waiting for events. */
 void power_manage(void)
 {
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
 
-
-
-
-/**
- * @brief Function for handling the idle state (main loop).
- *
- * @details If there is no pending log operation, then sleep until next the next event occurs.
- */
 static void idle_state_handle(void)
 {
     UNUSED_RETURN_VALUE(NRF_LOG_PROCESS());
@@ -364,12 +239,6 @@ static void idle_state_handle(void)
     power_manage();
 }
 
-
-// USB CODE START
-
-
-
-/** @brief User event handler @ref app_usbd_cdc_acm_user_ev_handler_t */
 static void cdc_acm_user_ev_handler(app_usbd_class_inst_t const * p_inst,
                                     app_usbd_cdc_acm_user_event_t event)
 {
@@ -541,51 +410,26 @@ static void usbd_user_ev_handler(app_usbd_event_type_t event)
     }
 }
 
-// USB CODE END
-
-
-// CLI CODE START
-
-
 void cli_init(void)
 {
     ret_code_t ret;
 
-// #if CLI_OVER_USB_CDC_ACM
-//     ret = nrf_cli_init(&m_cli_cdc_acm, NULL, true, true, NRF_LOG_SEVERITY_INFO);
-//     APP_ERROR_CHECK(ret);
-// #endif
-
-#if CLI_OVER_UART
     nrf_drv_uart_config_t uart_config = NRF_DRV_UART_DEFAULT_CONFIG;
     uart_config.pseltxd = TX_PIN_NUMBER;
     uart_config.pselrxd = RX_PIN_NUMBER;
     uart_config.hwfc    = NRF_UART_HWFC_DISABLED;
     ret = nrf_cli_init(&m_cli_uart, &uart_config, true, true, NRF_LOG_SEVERITY_INFO);
     APP_ERROR_CHECK(ret);
-#endif
 }
 
 void cli_start(void)
 {
     ret_code_t ret;
 
-#if CLI_OVER_USB_CDC_ACM
-    ret = nrf_cli_start(&m_cli_cdc_acm);
-    APP_ERROR_CHECK(ret);
-#endif
-
-#if CLI_OVER_UART
     ret = nrf_cli_start(&m_cli_uart);
     APP_ERROR_CHECK(ret);
-#endif
-
 }
 
-// CLI CODE END
-
-
-/** @brief Application main function. */
 int main(void)
 {
     ret_code_t ret;
@@ -636,7 +480,3 @@ int main(void)
         idle_state_handle();
     }
 }
-
-/**
- * @}
- */
