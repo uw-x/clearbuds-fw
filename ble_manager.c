@@ -79,6 +79,8 @@ static bool bufferBoundaryChecker(uint16_t node, uint16_t boundary, int length)
 #define bufferWillUnderflow(length) !bufferBoundaryChecker(ringBufferHead, ringBufferTail, length)
 #define bufferWillOverflow(length)  !bufferBoundaryChecker(ringBufferTail, ringBufferHead, length)
 
+static void send(void);
+
 char const * phy_str(ble_gap_phys_t phys)
 {
   static char const * str[] =
@@ -191,9 +193,11 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
       break;
 
     case BLE_CUS_EVT_CONNECTED:
+      NRF_LOG_RAW_INFO("%08d [ble] BLE_CUS_EVT_CONNECTED\n", systemTimeGetMs());
       break;
 
     case BLE_CUS_EVT_DISCONNECTED:
+      NRF_LOG_RAW_INFO("%08d [ble] BLE_CUS_EVT_DISCONNECTED\n", systemTimeGetMs());
       break;
 
     case BLE_CUS_EVT_TRANSFER_1KB:
@@ -377,7 +381,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     case BLE_GATTC_EVT_TIMEOUT:
       // Disconnect on GATT Client timeout event.
-      NRF_LOG_DEBUG("GATT Client Timeout.");
+      NRF_LOG_INFO("GATT Client Timeout.");
       err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                         BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
       APP_ERROR_CHECK(err_code);
@@ -385,7 +389,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     case BLE_GATTS_EVT_TIMEOUT:
       // Disconnect on GATT Server timeout event.
-      NRF_LOG_DEBUG("GATT Server Timeout.");
+      NRF_LOG_INFO("GATT Server Timeout.");
       err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                         BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
       APP_ERROR_CHECK(err_code);
