@@ -41,34 +41,43 @@
 #include "ble_cus.h"
 BLE_CUS_DEF(m_cus);
 
+#define OPCODE_LENGTH 1
+#define HANDLE_LENGTH 2
+
 static uint8_t* transmitData;
 static uint16_t transmitOffset;
 static uint32_t transmitLength;
 static uint16_t maxAttMtuBytes;
 static volatile bool transmitDone;
+static uint8_t bleCusPacket[256] = {0};
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
   {CUSTOM_SERVICE_UUID, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
 
-static void send(void)
+#define RING_BUFFER_SIZE 8000
+static uint8_t ringBuffer[RING_BUFFER_SIZE] = {0};
+static uint16_t ringBufferHead = 0;
+static uint16_t ringBufferTail = 0;
+
+static bool bufferBoundaryChecker(uint16_t node, uint16_t boundary, int length)
 {
-  int length;
-  while(transmitDone) {
-    length = MIN(maxAttMtuBytes, transmitLength);
+  bool boundaryOk = true;
+  bool willWrap = (((node + length) / RING_BUFFER_SIZE) > 0);
+  uint16_t shiftedNode = ((node + length) % RING_BUFFER_SIZE);
 
-    // Send data to ble layer
-    transmitDone = ble_cus_transmit(&m_cus, transmitData+transmitOffset, length);
-
-    if (transmitDone) {
-      // Calculate remaining bytes to transmit
-      transmitLength -= length;
-
-      // Offset for next transmission
-      transmitOffset += length;
-    }
+  if (willWrap) {
+    if (node <= boundary) { boundaryOk = false; }
+    else if (shiftedNode >= boundary) { boundaryOk = false; }
+  } else {
+    if ((node < boundary) && (shiftedNode >= boundary)) { boundaryOk = false; }
   }
+
+  return boundaryOk;
 }
+
+#define bufferWillUnderflow(length) !bufferBoundaryChecker(ringBufferHead, ringBufferTail, length)
+#define bufferWillOverflow(length)  !bufferBoundaryChecker(ringBufferTail, ringBufferHead, length)
 
 char const * phy_str(ble_gap_phys_t phys)
 {
@@ -122,8 +131,6 @@ static void gap_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-#define OPCODE_LENGTH 1
-#define HANDLE_LENGTH 2
 static void gatt_evt_handler(nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt)
 {
   switch (p_evt->evt_id)
@@ -390,12 +397,8 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
     case BLE_GATTS_EVT_HVN_TX_COMPLETE:
       transmitDone = true;
-      if (transmitLength > 0) {
-        send();
-      } else {
-        eventQueuePush(EVENT_BLE_SEND_DATA_DONE);
-      }
-
+      send(); // attempt to keep sending remaining bytes in ringBuffer
+      eventQueuePush(EVENT_BLE_SEND_DATA_DONE); // attempt to requeue mic data if ringBuffer was previously full
       NRF_LOG_DEBUG("Handle value notification");
       break;
 
@@ -513,21 +516,37 @@ void bleInit(void)
   NRF_LOG_RAW_INFO("[ble] address %08X %08X\n", NRF_FICR->DEVICEADDR[0], NRF_FICR->DEVICEADDR[1]);
 }
 
+static void send(void)
+{
+  int length = maxAttMtuBytes;
+
+  while(transmitDone) {
+    if (bufferWillUnderflow(length)) { break; }
+
+    for (int i = 0; i < length; i++) {
+      bleCusPacket[i] = ringBuffer[(ringBufferHead + i) % RING_BUFFER_SIZE];
+    }
+
+    transmitDone = ble_cus_transmit(&m_cus, bleCusPacket, length);
+
+    if (transmitDone) {
+      // Push head forward
+      ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
+    }
+  }
+}
+
 void bleSendData(uint8_t * data, uint32_t length)
 {
-  if (!transmitDone) {
-    NRF_LOG_RAW_INFO("%08d [ble] still transmitting, dumping request\n", systemTimeGetMs());
-    return;
+  for (int i = 0; i < length; i++) {
+    ringBuffer[(ringBufferTail + i) % RING_BUFFER_SIZE] = data[i];
   }
 
-  transmitData = data;
-  transmitOffset = 0;
-  transmitLength = length;
-
+  ringBufferTail = (ringBufferTail + length) % RING_BUFFER_SIZE;
   send();
 }
 
-bool bleCanTransmit(void)
+bool bleBufferHasSpace(uint16_t length)
 {
-  return transmitDone && (transmitLength == 0);
+  return (bufferWillOverflow(length) == false);
 }

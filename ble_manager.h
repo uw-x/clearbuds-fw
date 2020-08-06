@@ -8,3 +8,4 @@ void bleAdvertisingStart();
 void bleInit(void);
 void bleSendData(uint8_t * data, uint32_t length);
 bool bleCanTransmit(void);
+bool bleBufferHasSpace(uint16_t length);

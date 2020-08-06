@@ -178,8 +178,8 @@ static void shioInit(void)
 
   audioInit();
   spiInit();
-  accelInit();
-  accelGenericInterruptEnable(&accelInterrupt1);
+  // accelInit();
+  // accelGenericInterruptEnable(&accelInterrupt1);
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
 
@@ -209,10 +209,11 @@ static void processQueue(void)
 
       case EVENT_AUDIO_MIC_DATA_READY:
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_BUFFER_LENGTH);
+        // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
-          if (bleCanTransmit() && !bleRetry) {
+          if (bleBufferHasSpace(sizeof(int16_t) * PDM_BUFFER_LENGTH) && !bleRetry) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
           } else {
             if (!bleRetry) {
@@ -267,14 +268,14 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
-        if (bleRetry && bleCanTransmit()) {
+        if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_BUFFER_LENGTH)) {
           bleRetry = false;
           bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
         }
         break;
 
       default:
-        NRF_LOG_RAW_INFO("unhandled event\n");
+        NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());
         break;
     }
 
