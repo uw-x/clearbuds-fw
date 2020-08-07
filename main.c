@@ -47,6 +47,10 @@
 #include "flash.h"
 #include "main.h"
 
+#include "time_sync.h"
+#include "nrf_ppi.h"
+#include "nrf_timer.h"
+
 #define SECONDS_TO_RECORD 3
 #define MIC_TO_BLE
 // #define MIC_TO_FLASH
@@ -93,7 +97,7 @@ static void bsp_event_handler(bsp_event_t event)
   ret_code_t err_code;
 
   switch (event)
-  {
+  {			
     case BSP_EVENT_SLEEP:
       sleep_mode_enter();
       break; // BSP_EVENT_SLEEP
@@ -144,6 +148,41 @@ static void logInit(void)
   NRF_LOG_DEFAULT_BACKENDS_INIT();
 }
 
+static void timeSyncInit(void)
+{
+    uint32_t       err_code;
+    uint8_t        rf_address[5] = {0xDE, 0xAD, 0xBE, 0xEF, 0x19};
+    ts_params_t    ts_params;
+    
+    nrf_gpiote_task_configure(3, NRF_GPIO_PIN_MAP(1, 14), NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_LOW);
+    nrf_gpiote_task_enable(3);
+    
+    nrf_ppi_channel_endpoint_setup(
+        NRF_PPI_CHANNEL0, 
+        (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
+        nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
+    nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
+    
+    ts_params.high_freq_timer[0] = NRF_TIMER3;
+    ts_params.high_freq_timer[1] = NRF_TIMER2;
+    ts_params.rtc             = NRF_RTC1;
+    ts_params.egu             = NRF_EGU3;
+    ts_params.egu_irq_type    = SWI3_EGU3_IRQn;
+    ts_params.ppi_chg         = 0;
+    ts_params.ppi_chns[0]     = 1;
+    ts_params.ppi_chns[1]     = 2;
+    ts_params.ppi_chns[2]     = 3;
+    ts_params.ppi_chns[3]     = 4;
+    ts_params.rf_chn          = 125; /* For testing purposes */
+    memcpy(ts_params.rf_addr, rf_address, sizeof(rf_address));
+    
+    err_code = ts_init(&ts_params);
+    APP_ERROR_CHECK(err_code);
+    
+    err_code = ts_enable();
+    APP_ERROR_CHECK(err_code);
+}
+
 static void powerInit(void)
 {
   ret_code_t err_code;
@@ -185,6 +224,7 @@ static void shioInit(void)
 
 #ifdef MIC_TO_BLE
   bleInit();
+  timeSyncInit();
   bleAdvertisingStart();
 #endif
 
