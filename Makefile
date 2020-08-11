@@ -4,6 +4,40 @@ OUTPUT_DIRECTORY := _build
 
 SDK_ROOT := SDK
 PROJ_DIR := .
+TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
+
+include $(TEMPLATE_PATH)/Makefile.common
+
+GDB_PORT := 2331
+GDB_CMD_PATH := gdb_cmds.txt
+GDB := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-gdb
+
+# Toolchain commands
+CC := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-gcc
+AS := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-as
+AR := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-ar -r
+LD := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-ld
+NM := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-nm
+OBJDUMP := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-objdump
+OBJCOPY := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-objcopy
+SIZE := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-size
+GDB := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-gdb
+
+ifeq ($(OS),Windows_NT)
+# The Windows command shell 'start' function is used so the executable
+# is started in its own window.
+	TERMINAL := cmd /c start ""
+	TERMINAL_END := 
+	NRFJPROG := nrfjprog.exe
+	GDBSERVER := JLinkGDBServerCL.exe
+	RTT_CLIENT := JLinkRTTClient.exe
+else
+	TERMINAL := osascript -e 'tell app "Terminal" to do script "
+	TERMINAL_END := "'
+	NRFJPROG := nrfjprog
+	GDBSERVER := JLinkGDBServer
+	RTT_CLIENT := JLinkRTTClient
+endif
 
 $(OUTPUT_DIRECTORY)/nrf52840_xxaa.out: \
   LINKER_SCRIPT  := ble_app_template_gcc_nrf52.ld
@@ -311,10 +345,6 @@ help:
 	@echo		sdk_config - starting external tool for editing sdk_config.h
 	@echo		flash      - flashing binary
 
-TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
-
-
-include $(TEMPLATE_PATH)/Makefile.common
 
 $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
@@ -350,3 +380,20 @@ log_server:
 
 log_client:
 	JLinkRTTClient
+
+.PHONY: gdb_client gdb_server gdb
+
+gdb_client:
+  @echo "target remote localhost:$(GDB_PORT)" > $(GDB_CMD_PATH)
+	@echo "mon speed 10000" >> $(GDB_CMD_PATH)
+	@echo "mon flash download=1" >> $(GDB_CMD_PATH)
+	@echo "load $(OUTPUT_DIRECTORY)/$(TARGETS).out" >> $(GDB_CMD_PATH)
+	@echo "break main" >> $(GDB_CMD_PATH)
+	@echo "mon reset 0" >> $(GDB_CMD_PATH)
+	@echo "c" >> $(GDB_CMD_PATH)
+
+gdb_server:
+	$(TERMINAL) $(GDBSERVER) -device nrf52832_XXAA -if swd -port $(GDB_PORT) $(TERMINAL_END)
+	$(TERMINAL) $(GDB) $(CURDIR)/$(OUTPUT_DIRECTORY)/$(TARGETS).out -x $(CURDIR)/$(GDB_CMD_PATH) $(TERMINAL_END)
+
+gdb: gdb_client gdb_server

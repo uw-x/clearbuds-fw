@@ -1,0 +1,7 @@
+target remote localhost:2331
+mon speed 10000
+mon flash download=1
+load
+break main
+mon reset 0
+continue
