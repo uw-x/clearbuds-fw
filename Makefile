@@ -4,9 +4,10 @@ OUTPUT_DIRECTORY := _build
 
 SDK_ROOT := SDK
 PROJ_DIR := .
+TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
 
-GNU_INSTALL_ROOT := /usr/local/gcc-arm-none-eabi-7-2018-q2-update/bin
-GNU_PREFIX := /arm-none-eabi
+include $(TEMPLATE_PATH)/Makefile.common
+
 GDB_PORT := 2331
 GDB_CMD_PATH := gdb_cmds.txt
 GDB := $(GNU_INSTALL_ROOT)/$(GNU_PREFIX)-gdb
@@ -344,10 +345,6 @@ help:
 	@echo		sdk_config - starting external tool for editing sdk_config.h
 	@echo		flash      - flashing binary
 
-TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
-
-
-include $(TEMPLATE_PATH)/Makefile.common
 
 $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
