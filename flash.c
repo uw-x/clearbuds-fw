@@ -16,6 +16,7 @@
 #include "nrf_fstorage_sd.h"
 #include "flash.h"
 #include "flash_p.h"
+#include "timers.h"
 
 static volatile bool internalTransferDone;
 static volatile bool externalTransferDone;
@@ -182,9 +183,9 @@ void flashInternalInit(void)
   internalNextWriteAddress = FLASH_INTERNAL_BASE_ADDRESS;
   internalTransferDone = true;
 
-  NRF_LOG_RAW_INFO("[flash] internal flash initialized\n");
-  NRF_LOG_RAW_INFO("[flash] page size: %d bytes\n", NRF_FICR->CODEPAGESIZE);
-  NRF_LOG_RAW_INFO("[flash] allocated size: %d bytes\n", flashInternalGetEndAddress() - FLASH_INTERNAL_BASE_ADDRESS);
+  NRF_LOG_RAW_INFO("%08d [flash] internal flash initialized\n", systemTimeGetMs());
+  NRF_LOG_RAW_INFO("%08d [flash] page size: %d bytes\n", systemTimeGetMs(), NRF_FICR->CODEPAGESIZE);
+  NRF_LOG_RAW_INFO("%08d [flash] allocated size: %d bytes\n", systemTimeGetMs(), flashInternalGetEndAddress() - FLASH_INTERNAL_BASE_ADDRESS);
 
 }
 

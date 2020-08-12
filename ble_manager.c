@@ -36,6 +36,7 @@
 #include "timers.h"
 
 #include "nrf_nvic.h"
+#include "timers.h"
 
 // Custom services
 #include "ble_cus.h"
@@ -288,7 +289,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
   switch (ble_adv_evt)
   {
     case BLE_ADV_EVT_FAST:
-      NRF_LOG_RAW_INFO("[ble] fast advertising\n");
+      NRF_LOG_RAW_INFO("%08d [ble] fast advertising\n", systemTimeGetMs());
       err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
       APP_ERROR_CHECK(err_code);
       break;
@@ -472,7 +473,7 @@ static void advertising_init(void)
 
 void SWI1_IRQHandler(bool radio_evt)
 {
-  if (radio_evt) { eventQueuePush(EVENT_BLE_RADIO_START); }
+  // if (radio_evt) { eventQueuePush(EVENT_BLE_RADIO_START); }
 }
 
 uint32_t radio_notification_init(uint32_t irq_priority, uint8_t notification_type, uint8_t notification_distance)
@@ -517,7 +518,7 @@ void bleInit(void)
   conn_params_init();
   transmitDone = true;
 
-  NRF_LOG_RAW_INFO("[ble] address %08X %08X\n", NRF_FICR->DEVICEADDR[0], NRF_FICR->DEVICEADDR[1]);
+  NRF_LOG_RAW_INFO("%08d [ble] address %08X %08X\n", systemTimeGetMs(), NRF_FICR->DEVICEADDR[0], NRF_FICR->DEVICEADDR[1]);
 }
 
 static void send(void)

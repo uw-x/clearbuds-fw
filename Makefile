@@ -27,7 +27,7 @@ ifeq ($(OS),Windows_NT)
 # The Windows command shell 'start' function is used so the executable
 # is started in its own window.
 	TERMINAL := cmd /c start ""
-	TERMINAL_END := 
+	TERMINAL_END :=
 	NRFJPROG := nrfjprog.exe
 	GDBSERVER := JLinkGDBServerCL.exe
 	RTT_CLIENT := JLinkRTTClient.exe
@@ -121,6 +121,7 @@ SRC_FILES += \
   $(SDK_ROOT)/components/softdevice/common/nrf_sdh_soc.c \
   $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c \
 	$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_qspi.c \
+	$(SDK_ROOT)/components/libraries/mem_manager/mem_manager.c \
 
 
 # Include folders common to all targets
@@ -206,6 +207,7 @@ INC_FOLDERS += \
   $(SDK_ROOT)/components/nfc/t4t_parser/tlv \
   $(SDK_ROOT)/components/libraries/sortlist \
   $(SDK_ROOT)/components/libraries/spi_mngr \
+	$(SDK_ROOT)/components/libraries/mem_manager \
   $(SDK_ROOT)/components/libraries/led_softblink \
   $(SDK_ROOT)/components/nfc/ndef/conn_hand_parser \
   $(SDK_ROOT)/components/libraries/sdcard \
