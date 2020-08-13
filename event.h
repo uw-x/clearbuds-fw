@@ -9,8 +9,8 @@ typedef enum {
   EVENT_BLE_SEND_DATA_DONE,
 } event_t;
 
-bool    eventQueueIsEmpty(void);
-event_t eventQueueFront(void);
-void    eventQueuePush(event_t);
-event_t eventQueuePop(void);
 void    eventQueueInit(void);
+bool    eventQueueEmpty(void);
+event_t eventQueueFront(void);
+event_t eventQueuePop(void);
+void    eventQueuePush(event_t);

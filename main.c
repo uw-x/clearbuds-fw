@@ -192,7 +192,7 @@ static void powerInit(void)
 
 static void idle(void)
 {
-  if (NRF_LOG_PROCESS() == false && eventQueueIsEmpty()) {
+  if (NRF_LOG_PROCESS() == false && eventQueueEmpty()) {
     nrf_pwr_mgmt_run();
   }
 }
@@ -238,7 +238,7 @@ static void processQueue(void)
   static bool streamStarted = false;
 #endif
 
-  if (!eventQueueIsEmpty()) {
+  if (!eventQueueEmpty()) {
     switch(eventQueueFront()) {
       case EVENT_ACCEL_MOTION:
         NRF_LOG_RAW_INFO("%08d [accel] motion\n", systemTimeGetMs());
