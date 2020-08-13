@@ -27,7 +27,7 @@ ifeq ($(OS),Windows_NT)
 # The Windows command shell 'start' function is used so the executable
 # is started in its own window.
 	TERMINAL := cmd /c start ""
-	TERMINAL_END := 
+	TERMINAL_END :=
 	NRFJPROG := nrfjprog.exe
 	GDBSERVER := JLinkGDBServerCL.exe
 	RTT_CLIENT := JLinkRTTClient.exe

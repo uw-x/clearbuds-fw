@@ -65,7 +65,7 @@ void audioInit(void)
   gpioWrite(MIC_EN_PIN, 1);
   delayMs(1);
 
-  NRF_LOG_RAW_INFO("[audio] initialized\n");
+  NRF_LOG_RAW_INFO("%08d [audio] initialized\n", systemTimeGetMs());
 }
 
 void audioStart(void)
@@ -81,7 +81,7 @@ void audioStart(void)
   errorStatus = nrfx_pdm_start();
   ASSERT(errorStatus == NRFX_SUCCESS);
 
-  NRF_LOG_RAW_INFO("[audio] pdm start\n");
+  NRF_LOG_RAW_INFO("%08d [audio] pdm start\n", systemTimeGetMs());
 }
 
 void audioDeInit(void)
@@ -89,5 +89,5 @@ void audioDeInit(void)
   nrfx_pdm_stop();
   nrfx_pdm_uninit();
   gpioWrite(MIC_EN_PIN, 0);
-  NRF_LOG_RAW_INFO("[audio] deinitialized\n");
+  NRF_LOG_RAW_INFO("%08d [audio] deinitialized\n", systemTimeGetMs());
 }
