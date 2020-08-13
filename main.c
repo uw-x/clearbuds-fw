@@ -56,7 +56,7 @@
 // #define MIC_TO_FLASH
 
 static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
-static int16_t micData[PDM_BUFFER_LENGTH];
+static int16_t micData[PDM_DEC_BUFFER_LENGTH];
 static bool bleRetry = false;
 
 accelGenericInterrupt_t accelInterrupt1 = {
@@ -248,13 +248,13 @@ static void processQueue(void)
         break;
 
       case EVENT_AUDIO_MIC_DATA_READY:
-        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_BUFFER_LENGTH);
+        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH);
         // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
 
 #ifdef MIC_TO_BLE
         if (streamStarted) {
-          if (bleBufferHasSpace(sizeof(int16_t) * PDM_BUFFER_LENGTH) && !bleRetry) {
-            bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
+          if (bleBufferHasSpace(sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH) && !bleRetry) {
+            bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH);
           } else {
             if (!bleRetry) {
               bleRetry = true;
@@ -308,9 +308,9 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
-        if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_BUFFER_LENGTH)) {
+        if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH)) {
           bleRetry = false;
-          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_BUFFER_LENGTH);
+          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH);
         }
         break;
 
