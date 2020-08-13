@@ -5,7 +5,7 @@
 
 #define EVENT_QUEUE_DEPTH 20
 
-static uint8_t head = 0
+static uint8_t head = 0;
 static uint8_t tail = 0;
 static event_t eventQueue[EVENT_QUEUE_DEPTH] = {0};
 
