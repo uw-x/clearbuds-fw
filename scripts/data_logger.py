@@ -9,10 +9,15 @@ import numpy as np
 from scipy.io.wavfile import write
 import pcm_to_wav
 
+# param fs:       samping rate for conversion
+# i.e: python data_logger.py <fs>
 if __name__ == '__main__':
   try:
     # Grab user input for serial port
     ports = serial.tools.list_ports.comports()
+
+    # Sampling frequency
+    fs = sys.argv[1]
 
     i = 1
     ports = sorted(ports)
@@ -63,6 +68,6 @@ if __name__ == '__main__':
   except KeyboardInterrupt:
     ser.close()
     print("Writing to output.wav and exiting...")
-    os.system("python pcm_to_wav.py output.txt")
+    os.system("python pcm_to_wav.py output.txt " + fs)
     f.close()
 
