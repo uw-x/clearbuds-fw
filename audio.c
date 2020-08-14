@@ -24,18 +24,15 @@
 #include "audio.h"
 
 int16_t pdmBuffer[2][PDM_BUFFER_LENGTH] = {0};
-int16_t releasedPdmBuffer[PDM_DEC_BUFFER_LENGTH] = {0};
+int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
 static bool fftInputBufferReady = false;
 static int pdmBufferIndex = 0;
 
-void decimate(int16_t* buffer, uint8_t dec_factor)
+static void decimate(int16_t* outputBuffer, int16_t* inputBuffer, uint8_t decimationFactor)
 {
-  int16_t* dec = (int16_t *) malloc(sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH);
-  for (int i = 0; i < PDM_DEC_BUFFER_LENGTH; i++) {
-      dec[i] = buffer[i*dec_factor];
+  for (int i = 0; i < PDM_DECIMATION_BUFFER_LENGTH; i++) {
+    outputBuffer[i] = inputBuffer[i*decimationFactor];
   }
-  memcpy(releasedPdmBuffer, dec, sizeof(int16_t) * PDM_DEC_BUFFER_LENGTH);
-  free(dec);
 }
 
 static void pdmEventHandler(nrfx_pdm_evt_t *event)
@@ -50,8 +47,7 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
 
   if (event->buffer_released) {
     CRITICAL_REGION_ENTER();
-    // memcpy(releasedPdmBuffer, event->buffer_released, sizeof(int16_t) * PDM_BUFFER_LENGTH);
-    decimate(event->buffer_released, PDM_DEC_FACTOR);
+    decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
     CRITICAL_REGION_EXIT();
   }
