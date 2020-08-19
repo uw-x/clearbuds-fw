@@ -12,6 +12,7 @@
 #include "nfc_central_m.h"
 #include "adafruit_pn532.h"
 #include "main.h"
+#include "time_sync.h"
 
 #define UNKNOWN_PARAMETER     "unknown parameter: "
 #define WRONG_PARAMETER_COUNT "wrong parameter count \n"
@@ -1880,6 +1881,57 @@ static void cmd_scratchpad(nrf_cli_t const * p_cli, size_t argc, char ** argv)
   mainScratchpad();
 }
 
+static void cmd_ts_off(nrf_cli_t const * p_cli, size_t argc, char ** argv)
+{
+    if (argc != 1)
+    {
+        nrf_cli_fprintf(p_cli,
+                        NRF_CLI_ERROR,
+                        "%s %s: %s",
+                        argv[-1],
+                        argv[0],
+                        WRONG_PARAMETER_COUNT);
+        return;
+    }
+
+    uint32_t err_code = ts_tx_stop();
+    APP_ERROR_CHECK(err_code);
+    nrf_cli_fprintf(p_cli, NRF_CLI_NORMAL, "Time sync stopped\n");
+}
+
+static void cmd_ts_on(nrf_cli_t const * p_cli, size_t argc, char ** argv)
+{
+    if (argc != 1)
+    {
+        nrf_cli_fprintf(p_cli,
+                        NRF_CLI_ERROR,
+                        "%s %s: %s",
+                        argv[-1],
+                        argv[0],
+                        WRONG_PARAMETER_COUNT);
+        return;
+    }
+
+    uint32_t err_code = ts_tx_start(200);
+    APP_ERROR_CHECK(err_code);
+    nrf_cli_fprintf(p_cli, NRF_CLI_NORMAL, "Time sync started\n");
+}
+
+static void cmd_time_sync(nrf_cli_t const * p_cli, size_t argc, char ** argv)
+{
+  if ((argc == 1) || nrf_cli_help_requested(p_cli))
+  {
+      nrf_cli_help_print(p_cli, NULL, 0);
+      return;
+  }
+
+      nrf_cli_fprintf(p_cli,
+                      NRF_CLI_ERROR,
+                      "%s%s\n",
+                      UNKNOWN_PARAMETER,
+                      argv[1]);
+}
+
 
 /* Creating dynamic subcommands (level 2) */
 NRF_CLI_CREATE_DYNAMIC_CMD(m_sub_connect_addr_collection, connect_addr_get);
@@ -2042,6 +2094,13 @@ NRF_CLI_CREATE_STATIC_SUBCMD_SET(m_sub_scan)
     NRF_CLI_SUBCMD_SET_END
 };
 
+NRF_CLI_CREATE_STATIC_SUBCMD_SET(m_sub_ts)
+{
+    NRF_CLI_CMD(off, NULL, "Stop time sync.", cmd_ts_off),
+    NRF_CLI_CMD(on, NULL, "Start time sync.", cmd_ts_on),
+    NRF_CLI_SUBCMD_SET_END
+};
+
 /* Creating root (level 0) command */
 NRF_CLI_CMD_REGISTER(connected_devices,
                      NULL,
@@ -2078,6 +2137,7 @@ NRF_CLI_CMD_REGISTER(device_name, NULL, "<name> Set device name.", cmd_device_na
 NRF_CLI_CMD_REGISTER(scratchpad, NULL, "scratchpad", cmd_scratchpad);
 NRF_CLI_CMD_REGISTER(advertise, &m_sub_advertise, "Turn advertising <on/off>.", cmd_advertise);
 NRF_CLI_CMD_REGISTER(scan, &m_sub_scan, "Scan options", cmd_scan);
+NRF_CLI_CMD_REGISTER(ts, &m_sub_ts, "Time Sync <on/off>", cmd_time_sync);
 NRF_CLI_CMD_REGISTER(connect,
                      &m_sub_connect_addr_collection,
                      "<address/peer_id> Connect with a device.",
