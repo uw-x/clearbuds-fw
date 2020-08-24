@@ -314,6 +314,16 @@ static void processQueue(void)
         }
         break;
 
+      case EVENT_TIME_SYNC_MASTER_ENABLE:
+        NRF_LOG_RAW_INFO("%08d [main] time sync master enabled\n", systemTimeGetMs());
+        ts_tx_start(200);
+        break;
+
+      case EVENT_TIME_SYNC_SLAVE_ENABLE:
+        NRF_LOG_RAW_INFO("%08d [main] time sync slave enabled\n", systemTimeGetMs());
+        ts_tx_stop();
+        break;
+
       default:
         NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());
         break;

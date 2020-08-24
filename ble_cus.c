@@ -5,6 +5,8 @@
 #include "nrf_gpio.h"
 #include "boards.h"
 #include "nrf_log.h"
+#include "event.h"
+#include "timers.h"
 
 static void on_connect(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 {
@@ -24,13 +26,13 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 {
   const ble_gatts_evt_write_t * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
 
-  // Check if the handle passed with the event matches the Custom Value Characteristic handle.
-  if (p_evt_write->handle == p_cus->custom_value_handles.value_handle) {
+  // Check if the handle passed with the event matches the Mic Value Characteristic handle.
+  if (p_evt_write->handle == p_cus->mic_value_handles.value_handle) {
     NRF_LOG_INFO("Today's Menu: Shio Ramen");
   }
 
-  // Check if the Custom value CCCD is written to and that the value is the appropriate length, i.e 2 bytes.
-  if ((p_evt_write->handle == p_cus->custom_value_handles.cccd_handle) && (p_evt_write->len == 2)) {
+  // Check if the Mic value CCCD is written to and that the value is the appropriate length, i.e 2 bytes.
+  if ((p_evt_write->handle == p_cus->mic_value_handles.cccd_handle) && (p_evt_write->len == 2)) {
     // CCCD written, call application event handler
     if (p_cus->evt_handler != NULL) {
       ble_cus_evt_t evt;
@@ -45,6 +47,63 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
       p_cus->evt_handler(p_cus, &evt);
     }
   }
+
+  if (p_evt_write->handle == p_cus->time_sync_master_handles.value_handle) {
+    if (p_evt_write->data[0] == 0x6D) {
+      eventQueuePush(EVENT_TIME_SYNC_MASTER_ENABLE);
+    } else if (p_evt_write->data[0] == 0x73) {
+      eventQueuePush(EVENT_TIME_SYNC_SLAVE_ENABLE);
+    }
+  }
+}
+
+static uint32_t mic_char_add(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
+{
+  uint32_t err_code;
+  ble_add_char_params_t mic_params;
+  memset(&mic_params, 0, sizeof(mic_params));
+
+  mic_params.uuid              = MIC_CHAR_UUID;
+  mic_params.uuid_type         = p_cus->uuid_type;
+  mic_params.max_len           = NRF_SDH_BLE_GATT_MAX_MTU_SIZE;
+  mic_params.char_props.notify = 1;
+  // mic_params.char_props.write_wo_resp = 1; // to enable writing
+  // mic_params.char_props.read = 1;          // to enable reading
+  mic_params.cccd_write_access = SEC_OPEN;
+  mic_params.is_var_len        = 1;
+
+  err_code = characteristic_add(p_cus->service_handle, &mic_params, &(p_cus->mic_value_handles));
+  APP_ERROR_CHECK(err_code);
+
+  // TODO: Find a better place to put this, and reset this
+  p_cus->kbytes_sent = 0;
+  p_cus->bytes_sent = 0;
+
+  return NRF_SUCCESS;
+}
+
+static uint32_t time_sync_master_char_add(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
+{
+  uint32_t err_code;
+  ble_add_char_params_t time_sync_params;
+  memset(&time_sync_params, 0, sizeof(time_sync_params));
+
+  time_sync_params.uuid              = TIME_SYNC_MASTER_CHAR_UUID;
+  time_sync_params.uuid_type         = p_cus->uuid_type;
+  time_sync_params.max_len           = sizeof(uint8_t);
+  time_sync_params.init_len          = sizeof(uint8_t);
+  time_sync_params.char_props.notify = 0;
+  time_sync_params.char_props.write_wo_resp = 1;
+  time_sync_params.char_props.read = 0;
+  time_sync_params.read_access      = SEC_OPEN;
+  time_sync_params.write_access      = SEC_OPEN;
+  time_sync_params.cccd_write_access = SEC_OPEN;
+  time_sync_params.is_var_len        = 0;
+
+  err_code = characteristic_add(p_cus->service_handle, &time_sync_params, &(p_cus->time_sync_master_handles));
+  APP_ERROR_CHECK(err_code);
+
+  return NRF_SUCCESS;
 }
 
 void ble_cus_on_ble_evt( ble_evt_t const * p_ble_evt, void * p_context)
@@ -92,7 +151,7 @@ bool ble_cus_transmit(ble_cus_t * p_cus, uint8_t * data, uint16_t length)
 
   ble_gatts_hvx_params_t const hvx_param =
   {
-    .handle = p_cus->custom_value_handles.value_handle,
+    .handle = p_cus->mic_value_handles.value_handle,
     .p_data = data,
     .p_len  = &payload_len,
     .type   = BLE_GATT_HVX_NOTIFICATION,
@@ -143,28 +202,11 @@ uint32_t ble_cus_init(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
   err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &ble_uuid, &p_cus->service_handle);
   VERIFY_SUCCESS(err_code);
 
-  // Add Custom Value characteristic, legacy code probably delete later
-  // return custom_value_char_add(p_cus, p_cus_init);
+  // Add Mic Characteristic
+  mic_char_add(p_cus, p_cus_init);
 
-  // Start mic service here
-  ble_add_char_params_t mic_params;
-  memset(&mic_params, 0, sizeof(mic_params));
-
-  mic_params.uuid              = MIC_CHAR_UUID;
-  mic_params.uuid_type         = p_cus->uuid_type;
-  mic_params.max_len           = NRF_SDH_BLE_GATT_MAX_MTU_SIZE;
-  mic_params.char_props.notify = 1;
-  // mic_params.char_props.write_wo_resp = 1; // to enable writing
-  // mic_params.char_props.read = 1;          // to enable reading
-  mic_params.cccd_write_access = SEC_OPEN;
-  mic_params.is_var_len        = 1;
-
-  err_code = characteristic_add(p_cus->service_handle, &mic_params, &(p_cus->custom_value_handles));
-  APP_ERROR_CHECK(err_code);
-
-  // TODO: Find a better place to put this, and reset this
-  p_cus->kbytes_sent = 0;
-  p_cus->bytes_sent = 0;
+  // Add Time Sync Master Characteristic
+  time_sync_master_char_add(p_cus, p_cus_init);
 
   return NRF_SUCCESS;
 }

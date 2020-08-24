@@ -9,15 +9,17 @@
 
 // Generate UUIDs here:
 // https://www.uuidgenerator.net/version4
-// 47ea50d7-e4a0-4e55-8252-0afcd3246970
 
+// Shio Mic Stream Service
+// 47ea50d7-e4a0-4e55-8252-0afcd3246970
 #define CUSTOM_SERVICE_UUID_BASE         {0x70, 0x69, 0x24, 0xD3, 0xFC, 0x0A, 0x82, 0x52, \
                                           0x4E, 0x55, 0xE4, 0xA0, 0xD7, 0x50, 0xEA, 0x47}
 
-// These can be random
+// When adding/changing a characteristic, turn bluetooth off and on in your device's settings
 #define CUSTOM_SERVICE_UUID               0x1400
 #define CUSTOM_VALUE_CHAR_UUID            0x1401
 #define MIC_CHAR_UUID                     0x1402
+#define TIME_SYNC_MASTER_CHAR_UUID        0x1403
 
 #define BLE_CUS_DEF(_name) \
   static ble_cus_t _name; \
@@ -56,7 +58,8 @@ struct ble_cus_s
 {
   uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
   uint8_t                       uuid_type;
-  ble_gatts_char_handles_t      custom_value_handles;           /**< Handles related to the Custom Value characteristic. */
+  ble_gatts_char_handles_t      mic_value_handles;              /**< Handles related to the Custom Value characteristic. */
+  ble_gatts_char_handles_t      time_sync_master_handles;
   ble_cus_evt_handler_t         evt_handler;                    /**< Event handler to be called for handling events in the Custom Service. */
   uint16_t                      max_payload_len;                //!< Maximum number of bytes that can be sent in one notification. */
   uint32_t                      kbytes_sent;                    //!< Number of kilobytes sent. */
