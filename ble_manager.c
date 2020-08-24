@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "nordic_common.h"
@@ -518,7 +519,16 @@ void bleInit(void)
   conn_params_init();
   transmitDone = true;
 
-  NRF_LOG_RAW_INFO("%08d [ble] address %08X %08X\n", systemTimeGetMs(), NRF_FICR->DEVICEADDR[0], NRF_FICR->DEVICEADDR[1]);
+  uint8_t address[6] = {0};
+  address[0] = 0xC0 | ((NRF_FICR->DEVICEADDR[1] & 0xFF00) >> 8);
+  address[1] = (NRF_FICR->DEVICEADDR[1] & 0xFF);
+  address[2] = (NRF_FICR->DEVICEADDR[0] & 0xFF000000) >> 24;
+  address[3] = (NRF_FICR->DEVICEADDR[0] & 0xFF0000) >> 16;
+  address[4] = (NRF_FICR->DEVICEADDR[0] & 0xFF00) >> 8;
+  address[5] = (NRF_FICR->DEVICEADDR[0] & 0xFF);
+
+  NRF_LOG_RAW_INFO("%08d [ble] address -> ", systemTimeGetMs());
+  NRF_LOG_RAW_INFO("%02X:%02X:%02X:%02X:%02X:%02X\n", address[0], address[1], address[2], address[3], address[4], address[5]);
 }
 
 static void send(void)
