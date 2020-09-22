@@ -16,6 +16,7 @@
 
 #include "nrf_pdm.h"
 #include "nrfx_pdm.h"
+#include "time_sync.h"
 #include "timers.h"
 #include "draw.h"
 #include "gpio.h"
@@ -64,6 +65,11 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
 int16_t* audioGetMicData(void)
 {
   return releasedPdmBuffer;
+}
+
+void audioUpdateSampleOffset(void)
+{
+  NRF_LOG_RAW_INFO("%08d [audio] p:%d l:%d o:%d\n", systemTimeGetMs(), ts_get_peer_timer(), ts_get_local_timer(), ts_get_timer_offset());
 }
 
 void audioInit(void)

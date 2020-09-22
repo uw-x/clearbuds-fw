@@ -296,8 +296,8 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
       break;
 
     case BLE_ADV_EVT_IDLE:
-      NRF_LOG_INFO("BLE_ADV_EVT_IDLE...");
-      sleep_mode_enter();
+      NRF_LOG_RAW_INFO("%08d [ble] idle...\n", systemTimeGetMs());
+      // sleep_mode_enter();
       // Option to restart advertising
       // err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
       // APP_ERROR_CHECK(err_code);
@@ -420,6 +420,10 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
       NRF_LOG_INFO("BLE_GAP_EVT_DATA_LENGTH_UPDATE");
       break;
 
+    case BLE_GAP_EVT_ADV_SET_TERMINATED:
+      NRF_LOG_INFO("BLE_GAP_EVT_ADV_SET_TERMINATED");
+      break;
+
     default:
       // No implementation needed.
       NRF_LOG_INFO("BLE event not handled by app: %i", p_ble_evt->header.evt_id);
@@ -501,8 +505,11 @@ uint32_t radio_notification_init(uint32_t irq_priority, uint8_t notification_typ
 }
 
 // PUBLIC
+#define TX_POWER 0
+//(accepted values are -40, -20, -16, -12, -8, -4, 0, and 4 dBm)
 void bleAdvertisingStart()
 {
+  // ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, TX_POWER);
   ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
   APP_ERROR_CHECK(err_code);
 }

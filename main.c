@@ -110,34 +110,21 @@ static void bsp_event_handler(bsp_event_t event)
       }
       break; // BSP_EVENT_DISCONNECT
 
-    case BSP_EVENT_WHITELIST_OFF:
-      if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
-      {
-        err_code = ble_advertising_restart_without_whitelist(&m_advertising);
-        if (err_code != NRF_ERROR_INVALID_STATE)
-        {
-          APP_ERROR_CHECK(err_code);
-        }
-      }
-      break; // BSP_EVENT_KEY_0
+    case BSP_EVENT_KEY_0:
+      eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
+      break;
 
     default:
       break;
   }
 }
 
-static void buttons_leds_init(bool * p_erase_bonds)
+static void buttons_leds_init(void)
 {
   ret_code_t err_code;
-  bsp_event_t startup_event;
 
   err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, bsp_event_handler);
   APP_ERROR_CHECK(err_code);
-
-  err_code = bsp_btn_ble_init(NULL, &startup_event);
-  APP_ERROR_CHECK(err_code);
-
-  *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
 static void logInit(void)
@@ -208,7 +195,7 @@ static void shioInit(void)
   gpioOutputEnable(GPIO_1_PIN);
   gpioWrite(GPIO_1_PIN, 0); // booting
   eventQueueInit();
-  buttons_leds_init(&erase_bonds);
+  buttons_leds_init();
 
 #ifdef MIC_TO_FLASH
   flashInternalInit();
@@ -217,8 +204,8 @@ static void shioInit(void)
 
   audioInit();
   spiInit();
-  // accelInit();
-  // accelGenericInterruptEnable(&accelInterrupt1);
+  accelInit();
+  accelGenericInterruptEnable(&accelInterrupt1);
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
 
@@ -314,14 +301,22 @@ static void processQueue(void)
         }
         break;
 
-      case EVENT_TIME_SYNC_MASTER_ENABLE:
+      case EVENT_TIMESYNC_MASTER_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync master enabled\n", systemTimeGetMs());
         ts_tx_start(200);
         break;
 
-      case EVENT_TIME_SYNC_SLAVE_ENABLE:
+      case EVENT_TIMESYNC_SLAVE_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync slave enabled\n", systemTimeGetMs());
         ts_tx_stop();
+        break;
+
+      case EVENT_TIMESYNC_PACKET_RECEIVED:
+        // audioUpdateSampleOffset();
+        break;
+
+      case EVENT_TIMERS_ONE_SECOND_ELAPSED:
+        NRF_LOG_RAW_INFO("%08d [timers] %08d %08d\n", systemTimeGetMs(), systemTimeGetTicks() % 1000, ts_timestamp_get_ticks_u64(6) % 1000);
         break;
 
       default:

@@ -50,9 +50,9 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 
   if (p_evt_write->handle == p_cus->time_sync_master_handles.value_handle) {
     if (p_evt_write->data[0] == 0x6D) {
-      eventQueuePush(EVENT_TIME_SYNC_MASTER_ENABLE);
+      eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
     } else if (p_evt_write->data[0] == 0x73) {
-      eventQueuePush(EVENT_TIME_SYNC_SLAVE_ENABLE);
+      eventQueuePush(EVENT_TIMESYNC_SLAVE_ENABLE);
     }
   }
 }
