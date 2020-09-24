@@ -48,7 +48,7 @@
 
 #define TS_SOC_OBSERVER_PRIO 0
 
-#define TIME_SYNC_TIMER_MAX_VAL (40000)
+#define TIME_SYNC_TIMER_MAX_VAL (1600000)
 #define TIME_SYNC_RTC_MAX_VAL   (0xFFFFFF)
 
 /**@brief Data handler type. */
@@ -126,7 +126,7 @@ uint64_t ts_timestamp_get_ticks_u64(uint8_t ppi_chn);
 uint64_t ts_timestamp_get_microseconds(void);
 
 void ts_timestamp_debug(uint8_t ppi_chn);
-bool ts_is_master(void);
+bool ts_master(void);
 uint32_t ts_get_peer_timer(void);
 uint32_t ts_get_local_timer(void);
 uint32_t ts_get_timer_offset(void);

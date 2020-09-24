@@ -114,6 +114,10 @@ static void bsp_event_handler(bsp_event_t event)
       eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
       break;
 
+    case BSP_EVENT_KEY_1:
+      eventQueuePush(EVENT_AUDIO_STREAM_START);
+      break;
+
     default:
       break;
   }
@@ -144,11 +148,15 @@ static void timeSyncInit(void)
     nrf_gpiote_task_configure(3, NRF_GPIO_PIN_MAP(1, 14), NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_LOW);
     nrf_gpiote_task_enable(3);
 
+    // nrf_ppi_channel_endpoint_setup(
+    //     NRF_PPI_CHANNEL0,
+    //     (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
+    //     nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
+
     nrf_ppi_channel_endpoint_setup(
-        NRF_PPI_CHANNEL0,
-        (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
-        nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
-    nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
+      NRF_PPI_CHANNEL0,
+      (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
+      audioGetPdmStartTaskAddress());
 
     ts_params.high_freq_timer[0] = NRF_TIMER3;
     ts_params.high_freq_timer[1] = NRF_TIMER2;
@@ -190,9 +198,9 @@ static void shioInit(void)
 
   logInit();
   NRF_LOG_RAW_INFO("%08d [shio] booting...\n", systemTimeGetMs());
+
   timersInit();
   gpioInit();
-  gpioOutputEnable(GPIO_1_PIN);
   gpioWrite(GPIO_1_PIN, 0); // booting
   eventQueueInit();
   buttons_leds_init();
@@ -221,10 +229,6 @@ static void shioInit(void)
 
 static void processQueue(void)
 {
-#ifdef MIC_TO_BLE
-  static bool streamStarted = false;
-#endif
-
   if (!eventQueueEmpty()) {
     switch(eventQueueFront()) {
       case EVENT_ACCEL_MOTION:
@@ -234,12 +238,16 @@ static void processQueue(void)
       case EVENT_ACCEL_STATIC:
         break;
 
+      case EVENT_AUDIO_STREAM_START:
+        nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
+        break;
+
       case EVENT_AUDIO_MIC_DATA_READY:
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
         // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
-
+        nrf_ppi_channel_disable(NRF_PPI_CHANNEL0);
 #ifdef MIC_TO_BLE
-        if (streamStarted) {
+        if (audioStreamStarted()) {
           if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH) && !bleRetry) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
           } else {
@@ -249,6 +257,8 @@ static void processQueue(void)
               NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
             }
           }
+        } else {
+          // audioSetStreamStarted(true); // pdm started via programmable peripheral interconnect (PPI)
         }
 #endif
 
@@ -277,7 +287,6 @@ static void processQueue(void)
 
       case EVENT_BLE_DATA_STREAM_START:
 #ifdef MIC_TO_BLE
-        streamStarted = true;
         audioStart();
 #endif
         NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
@@ -285,7 +294,7 @@ static void processQueue(void)
 
       case EVENT_BLE_DATA_STREAM_STOP:
 #ifdef MIC_TO_BLE
-        streamStarted = false;
+        audioStop();
 #endif
         NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
         break;
@@ -312,12 +321,16 @@ static void processQueue(void)
         break;
 
       case EVENT_TIMESYNC_PACKET_RECEIVED:
-        // audioUpdateSampleOffset();
+        audioUpdateSamplesSkipped();
         break;
 
       case EVENT_TIMERS_ONE_SECOND_ELAPSED:
-        NRF_LOG_RAW_INFO("%08d [timers] %08d %08d\n", systemTimeGetMs(), systemTimeGetTicks() % 1000, ts_timestamp_get_ticks_u64(6) % 1000);
+      {
+        // uint64_t sysTicks = systemTimeGetTicks();
+        // uint64_t tsTicks = ts_timestamp_get_ticks_u64(6);
+        // NRF_LOG_RAW_INFO("%08d [timers] %u %u %d\n", systemTimeGetMs(), sysTicks, tsTicks, (int64_t) (sysTicks - tsTicks));
         break;
+      }
 
       default:
         NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());

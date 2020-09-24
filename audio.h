@@ -1,7 +1,11 @@
 // audio.h
 
 void audioInit(void);
-void audioStart(void);
 void audioDeInit(void);
+void audioStart(void);
+void audioStop(void);
 int16_t* audioGetMicData(void);
-void audioUpdateSampleOffset(void);
+void audioUpdateSamplesSkipped(void);
+bool audioStreamStarted(void);
+void audioSetStreamStarted(bool);
+uint32_t audioGetPdmStartTaskAddress(void);

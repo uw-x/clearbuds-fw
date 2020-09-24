@@ -19,6 +19,9 @@ void gpioInit(void)
 
   // err_code = nrf_drv_gpiote_out_init(PIN_OUT, &out_config);
   // APP_ERROR_CHECK(err_code);
+
+  gpioOutputEnable(GPIO_1_PIN);
+  gpioOutputEnable(GPIO_3_PIN);
 }
 
 void gpioOutputEnable(gpioPin_t pin)

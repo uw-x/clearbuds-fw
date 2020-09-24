@@ -24,10 +24,13 @@
 #include "main.h"
 #include "audio.h"
 
-int16_t pdmBuffer[2][PDM_BUFFER_LENGTH] = {0};
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
-static bool fftInputBufferReady = false;
-static int pdmBufferIndex = 0;
+int16_t pdmBuffer[2][PDM_BUFFER_LENGTH] = {0};
+static bool fftInputBufferReady         = false;
+static int pdmBufferIndex               = 0;
+static int64_t samplesSkipped           = 0;
+static int64_t ticksAhead               = 0;
+static bool streamStarted = false;
 
 static void decimate(int16_t* outputBuffer, int16_t* inputBuffer, uint8_t decimationFactor)
 {
@@ -48,6 +51,10 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
 
   if (event->buffer_released) {
     CRITICAL_REGION_ENTER();
+    gpioWrite(GPIO_3_PIN, 1);
+    gpioWrite(GPIO_3_PIN, 0);
+    // if ticksAhead > 320, zero order hold a sample
+    // if ticksAhead < -320 skip a sample
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
     CRITICAL_REGION_EXIT();
@@ -67,40 +74,94 @@ int16_t* audioGetMicData(void)
   return releasedPdmBuffer;
 }
 
-void audioUpdateSampleOffset(void)
+void audioUpdateSamplesSkipped(void)
 {
-  NRF_LOG_RAW_INFO("%08d [audio] p:%d l:%d o:%d\n", systemTimeGetMs(), ts_get_peer_timer(), ts_get_local_timer(), ts_get_timer_offset());
+  // With an fs of 50kHz and fpdm of 3.2MHz, after 64 pdm clock edges a sample needs to be skipped
+  // (64 clock cycles) / 3.2MHz = 20us
+  // 20us on the 16MHz time sync clock is 320 ticks
+  // Skip a 50khz sample after 320 ticks have accumulated
+
+  if (!ts_master()) {
+    uint32_t peerTimer   = ts_get_peer_timer();
+    uint32_t localTimer  = ts_get_local_timer();
+    uint32_t timerOffset = ts_get_timer_offset();
+
+    if (localTimer > peerTimer) {
+      ticksAhead += (int) timerOffset;
+    } else {
+      ticksAhead -= (int) timerOffset;
+    }
+
+    // NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%u t:%d\n", systemTimeGetMs(), ts_get_peer_timer(), ts_get_local_timer(), ts_get_timer_offset(), ticksAhead);
+  }
+}
+
+bool audioStreamStarted(void)
+{
+  return streamStarted;
+}
+
+void audioSetStreamStarted(bool started)
+{
+  streamStarted = started;
 }
 
 void audioInit(void)
 {
+  nrfx_err_t errorStatus;
+
+  // Enable Mic
   gpioOutputEnable(MIC_EN_PIN);
   gpioWrite(MIC_EN_PIN, 1);
   delayMs(1);
 
-  NRF_LOG_RAW_INFO("%08d [audio] initialized\n", systemTimeGetMs());
-}
+  // Setup PDM
+  nrfx_pdm_config_t pdmConfig = {
+    .mode               = (nrf_pdm_mode_t)NRFX_PDM_CONFIG_MODE,
+    .edge               = (nrf_pdm_edge_t)NRFX_PDM_CONFIG_EDGE,
+    .pin_clk            = PDM_CLK_PIN,
+    .pin_din            = PDM_DATA_PIN,
+    .clock_freq         = (nrf_pdm_freq_t) 0x19000000, // DIV10: 0x19000000 -> CLK: 3.200 MHz -> SR: 50000 Hz
+    .gain_l             = 0x3C, // 10dB gain
+    .gain_r             = 0x3C, // 10dB gain
+    .interrupt_priority = NRFX_PDM_CONFIG_IRQ_PRIORITY
+  };
 
-void audioStart(void)
-{
-  nrfx_err_t errorStatus;
-  nrfx_pdm_config_t pdmConfig = NRFX_PDM_DEFAULT_CONFIG(PDM_CLK_PIN, PDM_DATA_PIN);
   errorStatus = nrfx_pdm_init(&pdmConfig, (nrfx_pdm_event_handler_t) pdmEventHandler);
   ASSERT(errorStatus == NRFX_SUCCESS);
 
   nrfx_pdm_buffer_set(pdmBuffer[0], PDM_BUFFER_LENGTH);
   ASSERT(errorStatus == NRFX_SUCCESS);
 
-  errorStatus = nrfx_pdm_start();
-  ASSERT(errorStatus == NRFX_SUCCESS);
+  NRF_LOG_RAW_INFO("%08d [audio] initialized\n", systemTimeGetMs());
+}
 
-  NRF_LOG_RAW_INFO("%08d [audio] pdm start\n", systemTimeGetMs());
+void audioStart(void)
+{
+  if (!streamStarted) {
+    nrfx_err_t errorStatus;
+    streamStarted = true;
+    NRF_LOG_RAW_INFO("%08d [audio] pdm start\n", systemTimeGetMs());
+
+    errorStatus = nrfx_pdm_start();
+    ASSERT(errorStatus == NRFX_SUCCESS);
+  }
+}
+
+void audioStop(void)
+{
+  streamStarted = false;
+  nrfx_pdm_stop();
 }
 
 void audioDeInit(void)
 {
-  nrfx_pdm_stop();
   nrfx_pdm_uninit();
   gpioWrite(MIC_EN_PIN, 0);
   NRF_LOG_RAW_INFO("%08d [audio] deinitialized\n", systemTimeGetMs());
+}
+
+uint32_t audioGetPdmStartTaskAddress(void)
+{
+  return nrfx_pdm_task_address_get(NRF_PDM_TASK_START);
 }
