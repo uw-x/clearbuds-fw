@@ -24,11 +24,13 @@
 #include "main.h"
 #include "audio.h"
 
+#define TICKS_THRESHOLD 685
+
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
-int16_t pdmBuffer[2][PDM_BUFFER_LENGTH] = {0};
+int16_t pdmBuffer[2][PDM_BUFFER_LENGTH+2] = {0}; // add two to the buffer for sample compensation
 static bool fftInputBufferReady         = false;
 static int pdmBufferIndex               = 0;
-static int64_t samplesSkipped           = 0;
+static int64_t samplesCompensated       = 0;
 static int64_t ticksAhead               = 0;
 static bool streamStarted = false;
 
@@ -53,16 +55,45 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
     CRITICAL_REGION_ENTER();
     gpioWrite(GPIO_3_PIN, 1);
     gpioWrite(GPIO_3_PIN, 0);
-    // if ticksAhead > 320, zero order hold a sample
-    // if ticksAhead < -320 skip a sample
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
     CRITICAL_REGION_EXIT();
   }
 
   if (event->buffer_requested) {
+    // if ticksAhead > 320, increase pdm buffer size to slow down
+    // if ticksAhead < -320, decrease pdm buffer size to catch up
+    int bufferTweakAmount = 0;
+
+    if (!ts_master() && streamStarted) {
+      if (samplesCompensated == 0) {
+        if (ticksAhead > TICKS_THRESHOLD) {
+          bufferTweakAmount = 1;
+          samplesCompensated++;
+        } else if (ticksAhead < -TICKS_THRESHOLD) {
+          bufferTweakAmount = -1;
+          samplesCompensated--;
+        }
+      } else if (samplesCompensated > 0) {
+        if (ticksAhead > TICKS_THRESHOLD * (samplesCompensated + 1)) {
+          bufferTweakAmount = 1;
+          samplesCompensated++;
+        }
+      } else if (samplesCompensated < 0) {
+        if (ticksAhead < TICKS_THRESHOLD * (samplesCompensated - 1)) {
+          bufferTweakAmount = -1;
+          samplesCompensated--;
+        }
+      }
+
+      if (bufferTweakAmount != 0) {
+        NRF_LOG_RAW_INFO("%08d [audio] samplesCompensated:%d bufferTweakAmount:%d\n",
+          systemTimeGetMs(), samplesCompensated, bufferTweakAmount);
+      }
+    }
+
     pdmBufferIndex = (pdmBufferIndex == 0) ? 1 : 0;
-    errorStatus = nrfx_pdm_buffer_set(pdmBuffer[pdmBufferIndex], PDM_BUFFER_LENGTH);
+    errorStatus = nrfx_pdm_buffer_set(pdmBuffer[pdmBufferIndex], PDM_BUFFER_LENGTH + bufferTweakAmount);
     ASSERT(errorStatus == NRFX_SUCCESS);
   }
 
@@ -76,23 +107,29 @@ int16_t* audioGetMicData(void)
 
 void audioUpdateSamplesSkipped(void)
 {
-  // With an fs of 50kHz and fpdm of 3.2MHz, after 64 pdm clock edges a sample needs to be skipped
+  // 64 pdm clockes edges equates to 1 sample of PCM audio data
+  // After 64 pdm clock edges a sample needs to be skipped
+
+  // With an f_s of 50kHz and f_pdm of 3.2MHz:
   // (64 clock cycles) / 3.2MHz = 20us
   // 20us on the 16MHz time sync clock is 320 ticks
   // Skip a 50khz sample after 320 ticks have accumulated
 
-  if (!ts_master()) {
+  if (!ts_master() && streamStarted) {
     uint32_t peerTimer   = ts_get_peer_timer();
     uint32_t localTimer  = ts_get_local_timer();
-    uint32_t timerOffset = ts_get_timer_offset();
+    uint32_t timerOffset = ts_get_timer_offset() % TIME_SYNC_TIMER_MAX_VAL;
 
-    if (localTimer > peerTimer) {
-      ticksAhead += (int) timerOffset;
-    } else {
-      ticksAhead -= (int) timerOffset;
+    if (timerOffset < 10) {
+      if (localTimer > peerTimer) {
+        ticksAhead += (int) timerOffset;
+      } else {
+        ticksAhead -= (int) timerOffset;
+      }
     }
 
-    // NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%u t:%d\n", systemTimeGetMs(), ts_get_peer_timer(), ts_get_local_timer(), ts_get_timer_offset(), ticksAhead);
+    // NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%u t:%d\n",
+    //   systemTimeGetMs(), peerTimer, localTimer, timerOffset, ticksAhead);
   }
 }
 

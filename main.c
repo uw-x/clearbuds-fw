@@ -58,6 +58,7 @@
 static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
+static bool bleMicStreamRequested = false;
 
 accelGenericInterrupt_t accelInterrupt1 = {
   .pin = ACCEL_INT1,
@@ -243,11 +244,17 @@ static void processQueue(void)
         break;
 
       case EVENT_AUDIO_MIC_DATA_READY:
-        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
         // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
-        nrf_ppi_channel_disable(NRF_PPI_CHANNEL0);
-#ifdef MIC_TO_BLE
-        if (audioStreamStarted()) {
+        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
+
+        // PDM started via programmable peripheral interconnect (PPI)
+        // Disable PPI so that PDM doesn't restart, and set audioStreamStarted to true
+        if (!audioStreamStarted()) {
+          nrf_ppi_channel_disable(NRF_PPI_CHANNEL0);
+          audioSetStreamStarted(true);
+        }
+
+        if (audioStreamStarted() && bleMicStreamRequested) {
           if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH) && !bleRetry) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
           } else {
@@ -257,46 +264,19 @@ static void processQueue(void)
               NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
             }
           }
-        } else {
-          // audioSetStreamStarted(true); // pdm started via programmable peripheral interconnect (PPI)
         }
-#endif
-
-#ifdef MIC_TO_FLASH
-        flashInternalWrite(
-          (flashInternalGetNextWriteAddress()),
-          (uint8_t*) micData,
-          (2*PDM_BUFFER_LENGTH));
-
-        if (flashInternalGetBytesWritten() > SECONDS_TO_RECORD*100000) {
-          uint32_t readAddress = FLASH_INTERNAL_BASE_ADDRESS;
-          audioDeInit();
-
-          // Read 512 bytes, 1000 times = 512000KB dump
-          for (int i = 0; i < 1000; i++) {
-            readAddress = flashInternalRead(readAddress, flashReadBuffer, FLASH_READ_BUFFER_SIZE);
-            for (int j = 0; j < 512; j+=2) {
-              NRF_LOG_RAW_INFO("%d\n", (int16_t) (flashReadBuffer[j+1] << 8 | flashReadBuffer[j]));
-            }
-          }
-
-          while(1) {};
-        }
-#endif
         break;
 
       case EVENT_BLE_DATA_STREAM_START:
-#ifdef MIC_TO_BLE
-        audioStart();
-#endif
         NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
+        bleMicStreamRequested = true;
+        audioStart();
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
-#ifdef MIC_TO_BLE
-        audioStop();
-#endif
         NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
+        bleMicStreamRequested = false;
+        audioStop();
         break;
 
       case EVENT_BLE_RADIO_START:
