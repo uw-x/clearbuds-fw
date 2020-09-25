@@ -113,10 +113,11 @@ void audioUpdateSamplesSkipped(void)
   // 20us on the 16MHz time sync clock is 320 ticks
   // Skip a 50khz sample after 320 ticks have accumulated
 
-  static bool biasInitialized = false;
-  static uint64_t systemTimeBias = 0;
-  static uint64_t syncTimeBias   = 0;
-  static int32_t prevTimerOffset = 0;
+  static bool biasInitialized     = false;
+  static uint64_t systemTimeBias  = 0;
+  static uint64_t syncTimeBias    = 0;
+  static int32_t prevTimerOffset  = 0;
+  static uint32_t offsetTolerance = 100;
 
   if (!ts_master() && streamStarted) {
     uint64_t systemTimeTicks = systemTimeGetTicks();
@@ -143,10 +144,12 @@ void audioUpdateSamplesSkipped(void)
     // If there's an erroneous jump, then don't update ticksAhead
     // Likely hit this function as one timer was recently updated and the other hasn't
 
-    if (abs(timerOffset - prevTimerOffset) < 500) {
+    if (abs(timerOffset - prevTimerOffset) < offsetTolerance) {
       ticksAhead = timerOffset;
       prevTimerOffset = timerOffset;
+      offsetTolerance = 100;
     } else {
+      offsetTolerance += 5;
       NRF_LOG_RAW_INFO("%08d [audio] offset:%d prevOffset:%d delta:%d\n",
         systemTimeGetMs(), timerOffset, prevTimerOffset, abs(timerOffset - prevTimerOffset));
     }
