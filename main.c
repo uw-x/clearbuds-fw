@@ -149,13 +149,15 @@ static void timeSyncInit(void)
     nrf_gpiote_task_configure(3, NRF_GPIO_PIN_MAP(1, 14), NRF_GPIOTE_POLARITY_TOGGLE, NRF_GPIOTE_INITIAL_VALUE_LOW);
     nrf_gpiote_task_enable(3);
 
-    // nrf_ppi_channel_endpoint_setup(
-    //     NRF_PPI_CHANNEL0,
-    //     (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
-    //     nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
+    nrf_ppi_channel_endpoint_setup(
+        NRF_PPI_CHANNEL0,
+        (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
+        nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
+
+    nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
 
     nrf_ppi_channel_endpoint_setup(
-      NRF_PPI_CHANNEL0,
+      NRF_PPI_CHANNEL5,
       (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
       audioGetPdmStartTaskAddress());
 
@@ -240,7 +242,7 @@ static void processQueue(void)
         break;
 
       case EVENT_AUDIO_STREAM_START:
-        nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
+        nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
         break;
 
       case EVENT_AUDIO_MIC_DATA_READY:
@@ -250,7 +252,7 @@ static void processQueue(void)
         // PDM started via programmable peripheral interconnect (PPI)
         // Disable PPI so that PDM doesn't restart, and set audioStreamStarted to true
         if (!audioStreamStarted()) {
-          nrf_ppi_channel_disable(NRF_PPI_CHANNEL0);
+          nrf_ppi_channel_disable(NRF_PPI_CHANNEL5);
           audioSetStreamStarted(true);
         }
 

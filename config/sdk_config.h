@@ -11767,7 +11767,7 @@
 // <7=> 7
 
 #ifndef NRFX_PDM_CONFIG_IRQ_PRIORITY
-#define NRFX_PDM_CONFIG_IRQ_PRIORITY 6
+#define NRFX_PDM_CONFIG_IRQ_PRIORITY 2
 #endif
 
 // <e> NRFX_PDM_CONFIG_LOG_ENABLED - Enables logging in the module.

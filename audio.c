@@ -24,7 +24,7 @@
 #include "main.h"
 #include "audio.h"
 
-#define TICKS_THRESHOLD 685
+#define TICKS_THRESHOLD 320
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
 int16_t pdmBuffer[2][PDM_BUFFER_LENGTH+2] = {0}; // add two to the buffer for sample compensation
@@ -52,12 +52,10 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
   }
 
   if (event->buffer_released) {
-    CRITICAL_REGION_ENTER();
     gpioWrite(GPIO_3_PIN, 1);
     gpioWrite(GPIO_3_PIN, 0);
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
-    CRITICAL_REGION_EXIT();
   }
 
   if (event->buffer_requested) {
@@ -115,21 +113,48 @@ void audioUpdateSamplesSkipped(void)
   // 20us on the 16MHz time sync clock is 320 ticks
   // Skip a 50khz sample after 320 ticks have accumulated
 
-  if (!ts_master() && streamStarted) {
-    uint32_t peerTimer   = ts_get_peer_timer();
-    uint32_t localTimer  = ts_get_local_timer();
-    uint32_t timerOffset = ts_get_timer_offset() % TIME_SYNC_TIMER_MAX_VAL;
+  static bool biasInitialized = false;
+  static uint64_t systemTimeBias = 0;
+  static uint64_t syncTimeBias   = 0;
+  static int32_t prevTimerOffset = 0;
 
-    if (timerOffset < 10) {
-      if (localTimer > peerTimer) {
-        ticksAhead += (int) timerOffset;
-      } else {
-        ticksAhead -= (int) timerOffset;
-      }
+  if (!ts_master() && streamStarted) {
+    uint64_t systemTimeTicks = systemTimeGetTicks();
+    uint64_t syncTimeTicks   = ts_timestamp_get_ticks_u64(6);
+
+    if (!biasInitialized) {
+      biasInitialized = true;
+      systemTimeBias  = systemTimeTicks;
+      syncTimeBias    = syncTimeTicks;
+
+      NRF_LOG_RAW_INFO("%08d [audio] pBias:%u lBias:%u\n",
+        systemTimeGetMs(), syncTimeBias, systemTimeBias);
     }
 
-    // NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%u t:%d\n",
-    //   systemTimeGetMs(), peerTimer, localTimer, timerOffset, ticksAhead);
+    int64_t relativeSystemTime = systemTimeTicks - systemTimeBias;
+    int64_t relativeSyncTime   = syncTimeTicks - syncTimeBias;
+
+    int32_t timerOffset = relativeSystemTime - relativeSyncTime;
+
+    if (prevTimerOffset == 0) {
+      prevTimerOffset = timerOffset;
+    }
+
+    // If there's an erroneous jump, then don't update ticksAhead
+    // Likely hit this function as one timer was recently updated and the other hasn't
+
+    if (abs(timerOffset - prevTimerOffset) < 500) {
+      ticksAhead = timerOffset;
+      prevTimerOffset = timerOffset;
+    } else {
+      NRF_LOG_RAW_INFO("%08d [audio] offset:%d prevOffset:%d delta:%d\n",
+        systemTimeGetMs(), timerOffset, prevTimerOffset, abs(timerOffset - prevTimerOffset));
+    }
+
+
+    NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%d t:%d\n",
+      systemTimeGetMs(), relativeSyncTime, relativeSystemTime, timerOffset, ticksAhead);
+
   }
 }
 
