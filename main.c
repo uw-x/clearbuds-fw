@@ -303,7 +303,7 @@ static void processQueue(void)
         break;
 
       case EVENT_TIMESYNC_PACKET_RECEIVED:
-        audioUpdateSamplesSkipped();
+        audioUpdateTicksAhead();
         break;
 
       case EVENT_TIMERS_ONE_SECOND_ELAPSED:

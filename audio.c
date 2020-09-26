@@ -24,6 +24,7 @@
 #include "main.h"
 #include "audio.h"
 
+// #define AUDIO_SYNC_DEBUG
 #define TICKS_THRESHOLD 320
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
@@ -103,7 +104,7 @@ int16_t* audioGetMicData(void)
   return releasedPdmBuffer;
 }
 
-void audioUpdateSamplesSkipped(void)
+void audioUpdateTicksAhead(void)
 {
   // 64 pdm clockes edges equates to 1 sample of PCM audio data
   // After 64 pdm clock edges a sample needs to be skipped
@@ -128,14 +129,16 @@ void audioUpdateSamplesSkipped(void)
       biasInitialized = true;
       systemTimeBias  = systemTimeTicks;
       syncTimeBias    = syncTimeTicks;
-
-      NRF_LOG_RAW_INFO("%08d [audio] pBias:%u lBias:%u\n",
-        systemTimeGetMs(), syncTimeBias, systemTimeBias);
+#ifdef AUDIO_SYNC_DEBUG
+      NRF_LOG_RAW_INFO("%08d [audio] pBias:%u lBias:%u\n", systemTimeGetMs(), syncTimeBias, systemTimeBias);
+#endif
     }
 
+    // Subtract off bias
     int64_t relativeSystemTime = systemTimeTicks - systemTimeBias;
     int64_t relativeSyncTime   = syncTimeTicks - syncTimeBias;
 
+    // Calculate offset
     int32_t timerOffset = relativeSystemTime - relativeSyncTime;
 
     if (prevTimerOffset == 0) {
@@ -146,6 +149,7 @@ void audioUpdateSamplesSkipped(void)
     // Likely hit this function as one timer was recently updated and the other hasn't
     if (abs(timerOffset - prevTimerOffset) < offsetTolerance) {
       // Only update ticksAhead if we are within tolerance for at LEAST 3 time sync packets
+      // This gives the timers a chance to stabilize before updating ticksAhead
       if (tolerancePassed++ < 3) {
         offsetTolerance += 5;
       } else {
@@ -155,15 +159,17 @@ void audioUpdateSamplesSkipped(void)
       }
     } else {
       tolerancePassed = 0;
-      offsetTolerance += 5;
+      offsetTolerance += 5; // Each time we fail to update, increase our acceptable tolerance
+#ifdef AUDIO_SYNC_DEBUG
       NRF_LOG_RAW_INFO("%08d [audio] offset:%d prevOffset:%d delta:%d\n",
         systemTimeGetMs(), timerOffset, prevTimerOffset, abs(timerOffset - prevTimerOffset));
+#endif
     }
 
-
+#ifdef AUDIO_SYNC_DEBUG
     NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%d t:%d\n",
       systemTimeGetMs(), relativeSyncTime, relativeSystemTime, timerOffset, ticksAhead);
-
+#endif
   }
 }
 
@@ -175,6 +181,11 @@ bool audioStreamStarted(void)
 void audioSetStreamStarted(bool started)
 {
   streamStarted = started;
+}
+
+uint32_t audioGetPdmStartTaskAddress(void)
+{
+  return nrfx_pdm_task_address_get(NRF_PDM_TASK_START);
 }
 
 void audioInit(void)
@@ -230,9 +241,4 @@ void audioDeInit(void)
   nrfx_pdm_uninit();
   gpioWrite(MIC_EN_PIN, 0);
   NRF_LOG_RAW_INFO("%08d [audio] deinitialized\n", systemTimeGetMs());
-}
-
-uint32_t audioGetPdmStartTaskAddress(void)
-{
-  return nrfx_pdm_task_address_get(NRF_PDM_TASK_START);
 }
