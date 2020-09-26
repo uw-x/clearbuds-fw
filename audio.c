@@ -118,6 +118,7 @@ void audioUpdateSamplesSkipped(void)
   static uint64_t syncTimeBias    = 0;
   static int32_t prevTimerOffset  = 0;
   static uint32_t offsetTolerance = 100;
+  static uint32_t tolerancePassed = 0;
 
   if (!ts_master() && streamStarted) {
     uint64_t systemTimeTicks = systemTimeGetTicks();
@@ -143,12 +144,17 @@ void audioUpdateSamplesSkipped(void)
 
     // If there's an erroneous jump, then don't update ticksAhead
     // Likely hit this function as one timer was recently updated and the other hasn't
-
     if (abs(timerOffset - prevTimerOffset) < offsetTolerance) {
-      ticksAhead = timerOffset;
-      prevTimerOffset = timerOffset;
-      offsetTolerance = 100;
+      // Only update ticksAhead if we are within tolerance for at LEAST 3 time sync packets
+      if (tolerancePassed++ < 3) {
+        offsetTolerance += 5;
+      } else {
+        ticksAhead      = timerOffset;
+        prevTimerOffset = timerOffset;
+        offsetTolerance = 100;
+      }
     } else {
+      tolerancePassed = 0;
       offsetTolerance += 5;
       NRF_LOG_RAW_INFO("%08d [audio] offset:%d prevOffset:%d delta:%d\n",
         systemTimeGetMs(), timerOffset, prevTimerOffset, abs(timerOffset - prevTimerOffset));
