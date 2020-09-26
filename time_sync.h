@@ -125,10 +125,6 @@ uint64_t ts_timestamp_get_ticks_u64(uint8_t ppi_chn);
 
 uint64_t ts_timestamp_get_microseconds(void);
 
-void ts_timestamp_debug(uint8_t ppi_chn);
 bool ts_master(void);
-uint32_t ts_get_peer_timer(void);
-uint32_t ts_get_local_timer(void);
-uint32_t ts_get_timer_offset(void);
 
 #endif /* __TIME_SYNC_H__ */

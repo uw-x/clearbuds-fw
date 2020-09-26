@@ -122,10 +122,6 @@ static volatile uint32_t m_rcv_count      = 0;
 
 static volatile sync_pkt_t * mp_curr_adj_pkt;
 
-static uint32_t peer_timer;
-static uint32_t local_timer;
-static uint32_t timer_offset;
-
 static volatile enum
 {
     RADIO_STATE_IDLE, /* Default state */
@@ -552,6 +548,10 @@ void SWI3_EGU3_IRQHandler(void)
 
 static inline bool sync_timer_offset_compensate(sync_pkt_t * p_pkt)
 {
+    uint32_t peer_timer;
+    uint32_t local_timer;
+    uint32_t timer_offset;
+
     if (m_timer_update_in_progress)
     {
         return false;
@@ -916,18 +916,6 @@ uint64_t ts_timestamp_get_microseconds(void)
 bool ts_master(void)
 {
     return m_send_sync_pkt;
-}
-
-void ts_timestamp_debug(uint8_t ppi_chn)
-{
-    uint32_t sync_timer_val;
-    uint32_t count_timer_val;
-    uint32_t peer_count;
-    uint32_t timestamp;
-
-    timers_capture(&sync_timer_val, &count_timer_val, &peer_count, ppi_chn);
-
-    NRF_LOG_RAW_INFO("[ts] sync_timer_val = %u, count_timer_val = %u, peer_count = %u\n", sync_timer_val, count_timer_val, peer_count);
 }
 
 uint32_t ts_get_peer_timer(void)

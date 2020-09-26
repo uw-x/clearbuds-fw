@@ -223,10 +223,9 @@ void audioStart(void)
   if (!streamStarted) {
     nrfx_err_t errorStatus;
     streamStarted = true;
-    NRF_LOG_RAW_INFO("%08d [audio] pdm start\n", systemTimeGetMs());
-
     errorStatus = nrfx_pdm_start();
     ASSERT(errorStatus == NRFX_SUCCESS);
+    NRF_LOG_RAW_INFO("%08d [audio] pdm start\n", systemTimeGetMs());
   }
 }
 
