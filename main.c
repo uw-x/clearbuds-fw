@@ -58,6 +58,7 @@
 static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
+static bool bleMicStreamRequested = false;
 
 accelGenericInterrupt_t accelInterrupt1 = {
   .pin = ACCEL_INT1,
@@ -110,34 +111,25 @@ static void bsp_event_handler(bsp_event_t event)
       }
       break; // BSP_EVENT_DISCONNECT
 
-    case BSP_EVENT_WHITELIST_OFF:
-      if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
-      {
-        err_code = ble_advertising_restart_without_whitelist(&m_advertising);
-        if (err_code != NRF_ERROR_INVALID_STATE)
-        {
-          APP_ERROR_CHECK(err_code);
-        }
-      }
-      break; // BSP_EVENT_KEY_0
+    case BSP_EVENT_KEY_0:
+      eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
+      break;
+
+    case BSP_EVENT_KEY_1:
+      eventQueuePush(EVENT_AUDIO_STREAM_START);
+      break;
 
     default:
       break;
   }
 }
 
-static void buttons_leds_init(bool * p_erase_bonds)
+static void buttons_leds_init(void)
 {
   ret_code_t err_code;
-  bsp_event_t startup_event;
 
   err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, bsp_event_handler);
   APP_ERROR_CHECK(err_code);
-
-  err_code = bsp_btn_ble_init(NULL, &startup_event);
-  APP_ERROR_CHECK(err_code);
-
-  *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
 }
 
 static void logInit(void)
@@ -161,7 +153,13 @@ static void timeSyncInit(void)
         NRF_PPI_CHANNEL0,
         (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
         nrf_gpiote_task_addr_get(NRF_GPIOTE_TASKS_OUT_3));
+
     nrf_ppi_channel_enable(NRF_PPI_CHANNEL0);
+
+    nrf_ppi_channel_endpoint_setup(
+      NRF_PPI_CHANNEL5,
+      (uint32_t) nrf_timer_event_address_get(NRF_TIMER3, NRF_TIMER_EVENT_COMPARE4),
+      audioGetPdmStartTaskAddress());
 
     ts_params.high_freq_timer[0] = NRF_TIMER3;
     ts_params.high_freq_timer[1] = NRF_TIMER2;
@@ -203,12 +201,12 @@ static void shioInit(void)
 
   logInit();
   NRF_LOG_RAW_INFO("%08d [shio] booting...\n", systemTimeGetMs());
+
   timersInit();
   gpioInit();
-  gpioOutputEnable(GPIO_1_PIN);
   gpioWrite(GPIO_1_PIN, 0); // booting
   eventQueueInit();
-  buttons_leds_init(&erase_bonds);
+  buttons_leds_init();
 
 #ifdef MIC_TO_FLASH
   flashInternalInit();
@@ -217,8 +215,8 @@ static void shioInit(void)
 
   audioInit();
   spiInit();
-  // accelInit();
-  // accelGenericInterruptEnable(&accelInterrupt1);
+  accelInit();
+  accelGenericInterruptEnable(&accelInterrupt1);
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
 
@@ -234,10 +232,6 @@ static void shioInit(void)
 
 static void processQueue(void)
 {
-#ifdef MIC_TO_BLE
-  static bool streamStarted = false;
-#endif
-
   if (!eventQueueEmpty()) {
     switch(eventQueueFront()) {
       case EVENT_ACCEL_MOTION:
@@ -247,12 +241,22 @@ static void processQueue(void)
       case EVENT_ACCEL_STATIC:
         break;
 
-      case EVENT_AUDIO_MIC_DATA_READY:
-        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
-        // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
+      case EVENT_AUDIO_STREAM_START:
+        nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
+        break;
 
-#ifdef MIC_TO_BLE
-        if (streamStarted) {
+      case EVENT_AUDIO_MIC_DATA_READY:
+        // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
+        memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
+
+        // PDM started via programmable peripheral interconnect (PPI)
+        // Disable PPI so that PDM doesn't restart, and set audioStreamStarted to true
+        if (!audioStreamStarted()) {
+          nrf_ppi_channel_disable(NRF_PPI_CHANNEL5);
+          audioSetStreamStarted(true);
+        }
+
+        if (audioStreamStarted() && bleMicStreamRequested) {
           if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH) && !bleRetry) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
           } else {
@@ -263,44 +267,18 @@ static void processQueue(void)
             }
           }
         }
-#endif
-
-#ifdef MIC_TO_FLASH
-        flashInternalWrite(
-          (flashInternalGetNextWriteAddress()),
-          (uint8_t*) micData,
-          (2*PDM_BUFFER_LENGTH));
-
-        if (flashInternalGetBytesWritten() > SECONDS_TO_RECORD*100000) {
-          uint32_t readAddress = FLASH_INTERNAL_BASE_ADDRESS;
-          audioDeInit();
-
-          // Read 512 bytes, 1000 times = 512000KB dump
-          for (int i = 0; i < 1000; i++) {
-            readAddress = flashInternalRead(readAddress, flashReadBuffer, FLASH_READ_BUFFER_SIZE);
-            for (int j = 0; j < 512; j+=2) {
-              NRF_LOG_RAW_INFO("%d\n", (int16_t) (flashReadBuffer[j+1] << 8 | flashReadBuffer[j]));
-            }
-          }
-
-          while(1) {};
-        }
-#endif
         break;
 
       case EVENT_BLE_DATA_STREAM_START:
-#ifdef MIC_TO_BLE
-        streamStarted = true;
-        audioStart();
-#endif
         NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
+        bleMicStreamRequested = true;
+        audioStart();
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
-#ifdef MIC_TO_BLE
-        streamStarted = false;
-#endif
         NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
+        bleMicStreamRequested = false;
+        audioStop();
         break;
 
       case EVENT_BLE_RADIO_START:
@@ -314,15 +292,27 @@ static void processQueue(void)
         }
         break;
 
-      case EVENT_TIME_SYNC_MASTER_ENABLE:
+      case EVENT_TIMESYNC_MASTER_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync master enabled\n", systemTimeGetMs());
         ts_tx_start(200);
         break;
 
-      case EVENT_TIME_SYNC_SLAVE_ENABLE:
+      case EVENT_TIMESYNC_SLAVE_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync slave enabled\n", systemTimeGetMs());
         ts_tx_stop();
         break;
+
+      case EVENT_TIMESYNC_PACKET_RECEIVED:
+        audioUpdateTicksAhead();
+        break;
+
+      case EVENT_TIMERS_ONE_SECOND_ELAPSED:
+      {
+        // uint64_t sysTicks = systemTimeGetTicks();
+        // uint64_t tsTicks = ts_timestamp_get_ticks_u64(6);
+        // NRF_LOG_RAW_INFO("%08d [timers] %u %u %d\n", systemTimeGetMs(), sysTicks, tsTicks, (int64_t) (sysTicks - tsTicks));
+        break;
+      }
 
       default:
         NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());

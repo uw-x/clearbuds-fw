@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "event.h"
 
-#define EVENT_QUEUE_DEPTH 20
+#define EVENT_QUEUE_DEPTH 30
 
 static uint8_t head = 0;
 static uint8_t tail = 0;

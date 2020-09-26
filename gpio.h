@@ -18,9 +18,9 @@
 #define ACCEL_INT1_PIN                   NRF_GPIO_PIN_MAP(1, 7)
 #define ACCEL_INT2_PIN                   NRF_GPIO_PIN_MAP(1, 6)
 
-// TRACE
+// TRACE / UART
 #define GPIO_1_PIN                       NRF_GPIO_PIN_MAP(0, 5)
-#define GPIO_2_PIN                       NRF_GPIO_PIN_MAP(0, 6)
+// #define GPIO_2_PIN                       NRF_GPIO_PIN_MAP(0, 6)
 #define GPIO_3_PIN                       NRF_GPIO_PIN_MAP(0, 7)
 #define GPIO_4_PIN                       NRF_GPIO_PIN_MAP(0, 8)
 
