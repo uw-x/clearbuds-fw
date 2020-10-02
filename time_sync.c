@@ -917,18 +917,3 @@ bool ts_master(void)
 {
     return m_send_sync_pkt;
 }
-
-uint32_t ts_get_peer_timer(void)
-{
-    return peer_timer;
-}
-
-uint32_t ts_get_local_timer(void)
-{
-    return local_timer;
-}
-
-uint32_t ts_get_timer_offset(void)
-{
-    return timer_offset;
-}
