@@ -24,7 +24,7 @@
 #include "main.h"
 #include "audio.h"
 
-// #define AUDIO_SYNC_DEBUG
+#define AUDIO_SYNC_DEBUG
 #define TICKS_THRESHOLD 320
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
@@ -139,7 +139,7 @@ void audioUpdateTicksAhead(void)
     int64_t relativeSyncTime   = syncTimeTicks - syncTimeBias;
 
     // Calculate offset
-    int32_t timerOffset = relativeSystemTime - relativeSyncTime;
+    int32_t timerOffset = (relativeSystemTime - relativeSyncTime) % TIME_SYNC_TIMER_MAX_VAL;
 
     if (prevTimerOffset == 0) {
       prevTimerOffset = timerOffset;
