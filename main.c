@@ -230,6 +230,9 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("%08d [shio] booted\n", systemTimeGetMs());
 }
 
+// uint32_t bytesProcessed = 0;
+// static uint32_t lastTransferTimeMs = 0;
+
 static void processQueue(void)
 {
   if (!eventQueueEmpty()) {
@@ -246,6 +249,14 @@ static void processQueue(void)
         break;
 
       case EVENT_AUDIO_MIC_DATA_READY:
+        // bytesProcessed += 2*PDM_DECIMATION_BUFFER_LENGTH;
+        // if ((bytesProcessed % 10000) == 0) {
+        //   uint32_t interval = systemTimeGetMs() - lastTransferTimeMs;
+        //   uint32_t throughput = (10000 * 1000) / interval;
+        //   NRF_LOG_RAW_INFO("%08d [audio] sent %ukB %dbytes/sec\n", systemTimeGetMs(), bytesProcessed / 1000, throughput);
+        //   lastTransferTimeMs = systemTimeGetMs();
+        // }
+
         // NRF_LOG_RAW_INFO("%08d [main] mic data ready\n", systemTimeGetMs());
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
 

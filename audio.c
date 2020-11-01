@@ -24,7 +24,7 @@
 #include "main.h"
 #include "audio.h"
 
-#define AUDIO_SYNC_DEBUG
+// #define AUDIO_SYNC_DEBUG
 #define TICKS_THRESHOLD 320
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
@@ -160,7 +160,7 @@ void audioUpdateTicksAhead(void)
     } else {
       tolerancePassed = 0;
       offsetTolerance += 5; // Each time we fail to update, increase our acceptable tolerance
-#ifdef AUDIO_SYNC_DEBUG
+#ifdef AUDIO_SYNC_DEBUG_2
       NRF_LOG_RAW_INFO("%08d [audio] offset:%d prevOffset:%d delta:%d\n",
         systemTimeGetMs(), timerOffset, prevTimerOffset, abs(timerOffset - prevTimerOffset));
 #endif

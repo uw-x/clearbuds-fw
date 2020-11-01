@@ -183,6 +183,7 @@ static void nrf_qwr_error_handler(uint32_t nrf_error)
 
 static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
 {
+  static uint32_t lastTransferTimeMs = 0;
   switch(p_evt->evt_type) {
     case BLE_CUS_EVT_NOTIFICATION_ENABLED:
       transmitDone = true; // reset value
@@ -205,7 +206,11 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
     case BLE_CUS_EVT_TRANSFER_1KB:
     {
       if (((p_evt->bytes_transfered_cnt / 1024) % 10) == 0) {
-        NRF_LOG_RAW_INFO("%08d [ble] sent %u kB\n", systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024));
+        uint32_t interval = systemTimeGetMs() - lastTransferTimeMs;
+        uint32_t throughput = (10240 * 1000) / interval;
+        NRF_LOG_RAW_INFO("%08d [ble] sent %ukB %dkB/sec h:%d t:%d\n",
+          systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024), throughput/1024, ringBufferHead, ringBufferTail);
+        lastTransferTimeMs = systemTimeGetMs();
       }
       break;
     }
@@ -554,6 +559,9 @@ static void send(void)
     if (transmitDone) {
       // Push head forward
       ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
+      if (ringBufferHead > ringBufferTail) {
+        NRF_LOG_RAW_INFO("%08d [ble] ERROR", systemTimeGetMs());
+      }
     }
   }
 }
