@@ -38,6 +38,7 @@
 
 #include "nrf_nvic.h"
 #include "timers.h"
+#include "nrf_ringbuf.h"
 
 // Custom services
 #include "ble_cus.h"
@@ -57,29 +58,11 @@ static ble_uuid_t m_adv_uuids[] =                                               
   {CUSTOM_SERVICE_UUID, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
 
-#define RING_BUFFER_SIZE 8000
+#define RING_BUFFER_SIZE 2048
 static uint8_t ringBuffer[RING_BUFFER_SIZE] = {0};
 static uint16_t ringBufferHead = 0;
 static uint16_t ringBufferTail = 0;
-
-static bool bufferBoundaryChecker(uint16_t node, uint16_t boundary, int length)
-{
-  bool boundaryOk = true;
-  bool willWrap = (((node + length) / RING_BUFFER_SIZE) > 0);
-  uint16_t shiftedNode = ((node + length) % RING_BUFFER_SIZE);
-
-  if (willWrap) {
-    if (node <= boundary) { boundaryOk = false; }
-    else if (shiftedNode >= boundary) { boundaryOk = false; }
-  } else {
-    if ((node < boundary) && (shiftedNode >= boundary)) { boundaryOk = false; }
-  }
-
-  return boundaryOk;
-}
-
-#define bufferWillUnderflow(length) !bufferBoundaryChecker(ringBufferHead, ringBufferTail, length)
-#define bufferWillOverflow(length)  !bufferBoundaryChecker(ringBufferTail, ringBufferHead, length)
+static int ringBufferBytesUsed = 0;
 
 static void send(void);
 
@@ -208,8 +191,8 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
       if (((p_evt->bytes_transfered_cnt / 1024) % 10) == 0) {
         uint32_t interval = systemTimeGetMs() - lastTransferTimeMs;
         uint32_t throughput = (10240 * 1000) / interval;
-        NRF_LOG_RAW_INFO("%08d [ble] sent %ukB %dkB/sec h:%d t:%d\n",
-          systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024), throughput/1024, ringBufferHead, ringBufferTail);
+        NRF_LOG_RAW_INFO("%08d [ble] sent %ukB %dkB/sec\n",
+          systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024), throughput/1024);
         lastTransferTimeMs = systemTimeGetMs();
       }
       break;
@@ -545,38 +528,50 @@ void bleInit(void)
 
 static void send(void)
 {
+  static bool sending = false;
   int length = maxAttMtuBytes;
 
-  while(transmitDone) {
-    if (bufferWillUnderflow(length)) { break; }
+  while(transmitDone && (sending == false)) {
+    sending = true;
+    if (ringBufferBytesUsed <= length) { break; }
 
     for (int i = 0; i < length; i++) {
       bleCusPacket[i] = ringBuffer[(ringBufferHead + i) % RING_BUFFER_SIZE];
     }
 
+    if (ringBufferBytesUsed <= length) {
+      NRF_LOG_ERROR("1 ringBufferBytesUsed:%d length:%d", ringBufferBytesUsed, length);
+    }
+
     transmitDone = ble_cus_transmit(&m_cus, bleCusPacket, length);
 
     if (transmitDone) {
-      // Push head forward
       ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
-      if (ringBufferHead > ringBufferTail) {
-        NRF_LOG_RAW_INFO("%08d [ble] ERROR", systemTimeGetMs());
-      }
+
+      ringBufferBytesUsed -= length;
     }
   }
+
+  sending = false;
 }
 
-void bleSendData(uint8_t * data, uint32_t length)
+void bleSendData(uint8_t * data, int length)
 {
   for (int i = 0; i < length; i++) {
     ringBuffer[(ringBufferTail + i) % RING_BUFFER_SIZE] = data[i];
   }
 
   ringBufferTail = (ringBufferTail + length) % RING_BUFFER_SIZE;
+  ringBufferBytesUsed += length;
   send();
 }
 
 bool bleBufferHasSpace(uint16_t length)
 {
-  return (bufferWillOverflow(length) == false);
+  return ((ringBufferBytesUsed + length) < RING_BUFFER_SIZE);
+}
+
+uint32_t bleGetRingBufferBytesAvailable(void)
+{
+  return (RING_BUFFER_SIZE - ringBufferBytesUsed);
 }
