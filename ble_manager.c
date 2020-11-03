@@ -38,7 +38,6 @@
 
 #include "nrf_nvic.h"
 #include "timers.h"
-#include "nrf_ringbuf.h"
 
 // Custom services
 #include "ble_cus.h"
@@ -539,15 +538,10 @@ static void send(void)
       bleCusPacket[i] = ringBuffer[(ringBufferHead + i) % RING_BUFFER_SIZE];
     }
 
-    if (ringBufferBytesUsed <= length) {
-      NRF_LOG_ERROR("1 ringBufferBytesUsed:%d length:%d", ringBufferBytesUsed, length);
-    }
-
     transmitDone = ble_cus_transmit(&m_cus, bleCusPacket, length);
 
     if (transmitDone) {
       ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
-
       ringBufferBytesUsed -= length;
     }
   }

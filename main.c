@@ -230,9 +230,6 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("%08d [shio] booted\n", systemTimeGetMs());
 }
 
-// uint32_t bytesProcessed = 0;
-// static uint32_t lastTransferTimeMs = 0;
-
 static void processQueue(void)
 {
   if (!eventQueueEmpty()) {
