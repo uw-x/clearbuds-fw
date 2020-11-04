@@ -51,10 +51,6 @@
 #include "nrf_ppi.h"
 #include "nrf_timer.h"
 
-#define SECONDS_TO_RECORD 3
-#define MIC_TO_BLE
-// #define MIC_TO_FLASH
-
 static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
@@ -77,9 +73,11 @@ void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
   app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
-void sleep_mode_enter(void)
+void powerEnterSleepMode(void)
 {
   ret_code_t err_code;
+
+  NRF_LOG_RAW_INFO("%08d [power] powering off...\n", systemTimeGetMs());
 
   err_code = bsp_indication_set(BSP_INDICATE_IDLE);
   APP_ERROR_CHECK(err_code);
@@ -100,22 +98,22 @@ static void bsp_event_handler(bsp_event_t event)
   switch (event)
   {
     case BSP_EVENT_SLEEP:
-      sleep_mode_enter();
-      break; // BSP_EVENT_SLEEP
+      powerEnterSleepMode();
+      break;
 
     case BSP_EVENT_DISCONNECT:
       err_code = sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-      if (err_code != NRF_ERROR_INVALID_STATE)
-      {
-        APP_ERROR_CHECK(err_code);
-      }
-      break; // BSP_EVENT_DISCONNECT
+      if (err_code != NRF_ERROR_INVALID_STATE) { APP_ERROR_CHECK(err_code); }
+      break;
 
     case BSP_EVENT_KEY_0:
+      break;
+
+    case BSP_EVENT_KEY_2:
       eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
       break;
 
-    case BSP_EVENT_KEY_1:
+    case BSP_EVENT_KEY_3:
       eventQueuePush(EVENT_AUDIO_STREAM_START);
       break;
 
@@ -130,6 +128,9 @@ static void buttons_leds_init(void)
 
   err_code = bsp_init(BSP_INIT_LEDS | BSP_INIT_BUTTONS, bsp_event_handler);
   APP_ERROR_CHECK(err_code);
+
+  // Configure power off
+  bsp_event_to_button_action_assign(USER_BUTTON, BSP_BUTTON_ACTION_RELEASE, BSP_EVENT_SLEEP);
 }
 
 static void logInit(void)
@@ -186,6 +187,7 @@ static void powerInit(void)
   ret_code_t err_code;
   err_code = nrf_pwr_mgmt_init();
   APP_ERROR_CHECK(err_code);
+  sd_power_dcdc_mode_set(true);
 }
 
 static void idle(void)
@@ -204,14 +206,10 @@ static void shioInit(void)
 
   timersInit();
   gpioInit();
-  gpioWrite(GPIO_1_PIN, 0); // booting
+  // gpioOutputEnable(POWER_LED_PIN);
+  // gpioWrite(POWER_LED_PIN, 0); // booting
   eventQueueInit();
   buttons_leds_init();
-
-#ifdef MIC_TO_FLASH
-  flashInternalInit();
-  flashInternalErase(FLASH_INTERNAL_BASE_ADDRESS, (SECONDS_TO_RECORD*100000) / 4000); // Erase 125 4kB pages
-#endif
 
   audioInit();
   spiInit();
@@ -220,13 +218,12 @@ static void shioInit(void)
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
 
-#ifdef MIC_TO_BLE
   bleInit();
   timeSyncInit();
   bleAdvertisingStart();
-#endif
 
-  gpioWrite(GPIO_1_PIN, 1); // finished booting
+  // gpioWrite(POWER_LED_PIN, 1); // finished booting
+
   NRF_LOG_RAW_INFO("%08d [shio] booted\n", systemTimeGetMs());
 }
 
@@ -291,6 +288,10 @@ static void processQueue(void)
         }
         break;
 
+      case EVENT_BLE_IDLE:
+        powerEnterSleepMode();
+        break;
+
       case EVENT_TIMESYNC_MASTER_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync master enabled\n", systemTimeGetMs());
         ts_tx_start(200);
@@ -306,12 +307,7 @@ static void processQueue(void)
         break;
 
       case EVENT_TIMERS_ONE_SECOND_ELAPSED:
-      {
-        // uint64_t sysTicks = systemTimeGetTicks();
-        // uint64_t tsTicks = ts_timestamp_get_ticks_u64(6);
-        // NRF_LOG_RAW_INFO("%08d [timers] %u %u %d\n", systemTimeGetMs(), sysTicks, tsTicks, (int64_t) (sysTicks - tsTicks));
         break;
-      }
 
       default:
         NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());

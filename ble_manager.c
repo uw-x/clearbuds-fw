@@ -277,17 +277,14 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
   switch (ble_adv_evt)
   {
     case BLE_ADV_EVT_FAST:
-      NRF_LOG_RAW_INFO("%08d [ble] fast advertising\n", systemTimeGetMs());
+      NRF_LOG_RAW_INFO("%08d [ble] advertising\n", systemTimeGetMs());
       err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
       APP_ERROR_CHECK(err_code);
       break;
 
     case BLE_ADV_EVT_IDLE:
-      NRF_LOG_RAW_INFO("%08d [ble] idle...\n", systemTimeGetMs());
-      // sleep_mode_enter();
-      // Option to restart advertising
-      // err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-      // APP_ERROR_CHECK(err_code);
+      NRF_LOG_RAW_INFO("%08d [ble] idle\n", systemTimeGetMs());
+      eventQueuePush(EVENT_BLE_IDLE);
       break;
 
     default:
@@ -369,7 +366,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
       break;
 
     case BLE_GATTC_EVT_TIMEOUT:
-      // Disconnect on GATT Client timeout event.
       NRF_LOG_INFO("GATT Client Timeout.");
       err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gattc_evt.conn_handle,
                                         BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -377,7 +373,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
       break;
 
     case BLE_GATTS_EVT_TIMEOUT:
-      // Disconnect on GATT Server timeout event.
       NRF_LOG_INFO("GATT Server Timeout.");
       err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                         BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -412,7 +407,6 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
       break;
 
     default:
-      // No implementation needed.
       NRF_LOG_INFO("BLE event not handled by app: %i", p_ble_evt->header.evt_id);
       break;
   }
