@@ -51,7 +51,6 @@
 #include "nrf_ppi.h"
 #include "nrf_timer.h"
 
-static uint8_t flashReadBuffer[FLASH_READ_BUFFER_SIZE] = {0};
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
 static bool bleMicStreamRequested = false;
@@ -275,6 +274,7 @@ static void processQueue(void)
         NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
         bleMicStreamRequested = false;
         audioStop();
+        NVIC_SystemReset();
         break;
 
       case EVENT_BLE_RADIO_START:
