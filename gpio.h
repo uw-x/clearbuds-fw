@@ -25,7 +25,8 @@
 #define GPIO_4_PIN                       NRF_GPIO_PIN_MAP(0, 8)
 
 // LED
-#define POWER_LED_PIN                    NRF_GPIO_PIN_MAP(0,12)
+#define DEBUG_LED_PIN                    NRF_GPIO_PIN_MAP(0,12)                 // not functional on revA design
+#define BLE_LED_PIN                      NRF_GPIO_PIN_MAP(0,13)                 // 0 to turn on, 1 to turn off
 
 // QSPI
 // These are located in sdk_config.h. They're placed here just for reference.

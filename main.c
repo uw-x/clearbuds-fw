@@ -205,8 +205,6 @@ static void shioInit(void)
 
   timersInit();
   gpioInit();
-  // gpioOutputEnable(POWER_LED_PIN);
-  // gpioWrite(POWER_LED_PIN, 0); // booting
   eventQueueInit();
   buttons_leds_init();
 
@@ -220,8 +218,6 @@ static void shioInit(void)
   bleInit();
   timeSyncInit();
   bleAdvertisingStart();
-
-  // gpioWrite(POWER_LED_PIN, 1); // finished booting
 
   NRF_LOG_RAW_INFO("%08d [shio] booted\n", systemTimeGetMs());
 }
