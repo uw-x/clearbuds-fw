@@ -300,6 +300,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
   {
     case BLE_GAP_EVT_DISCONNECTED:
       NRF_LOG_INFO("Disconnected.");
+      eventQueuePush(EVENT_BLE_DISCONNECTED);
       // LED indication will be changed when advertising starts.
       break;
 
@@ -317,6 +318,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
       uint16_t max_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.max_conn_interval;
       uint16_t min_con_int = p_ble_evt->evt.gap_evt.params.conn_param_update.conn_params.min_conn_interval;
       NRF_LOG_INFO("Connection interval updated: %d, %d", (5*min_con_int)/4, (5*max_con_int)/4);
+      ble_cus_control_char_write(&m_cus, 0xFF);
       break;
     }
 

@@ -26,6 +26,7 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 {
   const ble_gatts_evt_write_t * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
 
+  // Mic characteristic
   // Check if the handle passed with the event matches the Mic Value Characteristic handle.
   if (p_evt_write->handle == p_cus->mic_value_handles.value_handle) {
     NRF_LOG_INFO("Today's Menu: Shio Ramen");
@@ -33,6 +34,7 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 
   // Check if the Mic value CCCD is written to and that the value is the appropriate length, i.e 2 bytes.
   if ((p_evt_write->handle == p_cus->mic_value_handles.cccd_handle) && (p_evt_write->len == 2)) {
+    NRF_LOG_INFO("Mic characteristic notification enabled");
     // CCCD written, call application event handler
     if (p_cus->evt_handler != NULL) {
       ble_cus_evt_t evt;
@@ -48,7 +50,8 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
     }
   }
 
-  if (p_evt_write->handle == p_cus->time_sync_master_handles.value_handle) {
+  // Control characteristic
+  if (p_evt_write->handle == p_cus->control_char_handles.value_handle) {
     if (p_evt_write->data[0] == 0x6D) {
       eventQueuePush(EVENT_TIMESYNC_MASTER_ENABLE);
     } else if (p_evt_write->data[0] == 0x73) {
@@ -56,6 +59,10 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
     } else if (p_evt_write->data[0] == 0xA5) {
       eventQueuePush(EVENT_AUDIO_STREAM_START);
     }
+  }
+
+  if ((p_evt_write->handle == p_cus->control_char_handles.cccd_handle) && (p_evt_write->len == 2)) {
+    NRF_LOG_INFO("Control characteristic notification enabled");
   }
 }
 
@@ -84,25 +91,25 @@ static uint32_t mic_char_add(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_ini
   return NRF_SUCCESS;
 }
 
-static uint32_t time_sync_master_char_add(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
+static uint32_t control_char_add(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
 {
   uint32_t err_code;
-  ble_add_char_params_t time_sync_params;
-  memset(&time_sync_params, 0, sizeof(time_sync_params));
+  ble_add_char_params_t control_params;
+  memset(&control_params, 0, sizeof(control_params));
 
-  time_sync_params.uuid              = TIME_SYNC_MASTER_CHAR_UUID;
-  time_sync_params.uuid_type         = p_cus->uuid_type;
-  time_sync_params.max_len           = sizeof(uint8_t);
-  time_sync_params.init_len          = sizeof(uint8_t);
-  time_sync_params.char_props.notify = 0;
-  time_sync_params.char_props.write_wo_resp = 1;
-  time_sync_params.char_props.read = 0;
-  time_sync_params.read_access      = SEC_OPEN;
-  time_sync_params.write_access      = SEC_OPEN;
-  time_sync_params.cccd_write_access = SEC_OPEN;
-  time_sync_params.is_var_len        = 0;
+  control_params.uuid              = CONTROL_CHAR_UUID;
+  control_params.uuid_type         = p_cus->uuid_type;
+  control_params.max_len           = 1;
+  control_params.init_len          = 1;
+  control_params.char_props.notify = 1;
+  control_params.char_props.write_wo_resp = 1;
+  control_params.char_props.read   = 1;
+  control_params.read_access       = SEC_OPEN;
+  control_params.write_access      = SEC_OPEN;
+  control_params.cccd_write_access = SEC_OPEN;
+  control_params.is_var_len        = 0;
 
-  err_code = characteristic_add(p_cus->service_handle, &time_sync_params, &(p_cus->time_sync_master_handles));
+  err_code = characteristic_add(p_cus->service_handle, &control_params, &(p_cus->control_char_handles));
   APP_ERROR_CHECK(err_code);
 
   return NRF_SUCCESS;
@@ -207,8 +214,33 @@ uint32_t ble_cus_init(ble_cus_t * p_cus, const ble_cus_init_t * p_cus_init)
   // Add Mic Characteristic
   mic_char_add(p_cus, p_cus_init);
 
-  // Add Time Sync Master Characteristic
-  time_sync_master_char_add(p_cus, p_cus_init);
+  // Add Control Characteristic
+  control_char_add(p_cus, p_cus_init);
 
   return NRF_SUCCESS;
+}
+
+uint32_t ble_cus_control_char_write(ble_cus_t * p_cus, uint8_t data)
+{
+  uint32_t err_code = NRF_SUCCESS;
+  uint16_t len = 1;
+
+  ble_gatts_hvx_params_t const params =
+  {
+    .handle = p_cus->control_char_handles.value_handle,
+    .p_data = &data,
+    .p_len  = &len,
+    .type   = BLE_GATT_HVX_NOTIFICATION,
+  };
+
+  err_code = sd_ble_gatts_hvx(p_cus->conn_handle, &params);
+
+  if (err_code == NRF_ERROR_RESOURCES) {
+    return false; // return busy flag
+  } else if (err_code != NRF_SUCCESS) {
+    NRF_LOG_ERROR("sd_ble_gatts_hvx() failed: 0x%x", err_code);
+    return false;
+  }
+
+  return true;
 }

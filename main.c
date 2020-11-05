@@ -292,6 +292,10 @@ static void processQueue(void)
         powerEnterSleepMode();
         break;
 
+      case EVENT_BLE_DISCONNECTED:
+        NVIC_SystemReset();
+        break;
+
       case EVENT_TIMESYNC_MASTER_ENABLE:
         NRF_LOG_RAW_INFO("%08d [main] time sync master enabled\n", systemTimeGetMs());
         ts_tx_start(200);

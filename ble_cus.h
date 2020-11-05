@@ -19,7 +19,7 @@
 #define CUSTOM_SERVICE_UUID               0x1400
 #define CUSTOM_VALUE_CHAR_UUID            0x1401
 #define MIC_CHAR_UUID                     0x1402
-#define TIME_SYNC_MASTER_CHAR_UUID        0x1403
+#define CONTROL_CHAR_UUID                 0x1403
 
 #define BLE_CUS_DEF(_name) \
   static ble_cus_t _name; \
@@ -59,7 +59,7 @@ struct ble_cus_s
   uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
   uint8_t                       uuid_type;
   ble_gatts_char_handles_t      mic_value_handles;              /**< Handles related to the Custom Value characteristic. */
-  ble_gatts_char_handles_t      time_sync_master_handles;
+  ble_gatts_char_handles_t      control_char_handles;
   ble_cus_evt_handler_t         evt_handler;                    /**< Event handler to be called for handling events in the Custom Service. */
   uint16_t                      max_payload_len;                //!< Maximum number of bytes that can be sent in one notification. */
   uint32_t                      kbytes_sent;                    //!< Number of kilobytes sent. */
@@ -72,3 +72,4 @@ void ble_cus_on_ble_evt( ble_evt_t const * p_ble_evt, void * p_context);
 uint32_t ble_cus_custom_value_update(ble_cus_t * p_cus, uint8_t custom_value);
 void ble_cus_on_gatt_evt(ble_cus_t * p_cus, nrf_ble_gatt_evt_t const * p_gatt_evt);
 bool ble_cus_transmit(ble_cus_t * p_cus, uint8_t * data, uint16_t length);
+uint32_t ble_cus_control_char_write(ble_cus_t * p_cus, uint8_t data);
