@@ -81,6 +81,14 @@ void powerEnterSleepMode(void)
   err_code = bsp_indication_set(BSP_INDICATE_IDLE);
   APP_ERROR_CHECK(err_code);
 
+  // Drive enable signals low before shutting down
+  gpioOutputEnable(MIC_EN_PIN);
+  gpioWrite(MIC_EN_PIN, 0);
+  gpioOutputEnable(ACCEL_EN_PIN);
+  gpioWrite(MIC_EN_PIN, 0);
+  gpioOutputEnable(FLASH_EN_PIN);
+  gpioWrite(MIC_EN_PIN, 0);
+
   // Prepare wakeup buttons.
   err_code = bsp_btn_ble_sleep_mode_prepare();
   APP_ERROR_CHECK(err_code);
@@ -187,6 +195,9 @@ static void powerInit(void)
   err_code = nrf_pwr_mgmt_init();
   APP_ERROR_CHECK(err_code);
   sd_power_dcdc_mode_set(true);
+
+  gpioOutputEnable(FLASH_EN_PIN);
+  gpioWrite(MIC_EN_PIN, 0);
 }
 
 static void idle(void)

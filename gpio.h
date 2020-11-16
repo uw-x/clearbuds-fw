@@ -36,6 +36,7 @@
 // #define NRFX_QSPI_PIN_IO1                NRF_GPIO_PIN_MAP(0, 21)
 // #define NRFX_QSPI_PIN_IO2                NRF_GPIO_PIN_MAP(0, 22)
 // #define NRFX_QSPI_PIN_IO3                NRF_GPIO_PIN_MAP(0, 23)
+#define FLASH_EN_PIN                     NRF_GPIO_PIN_MAP(0,16)
 
 // Wrapper
 #define GPIO_INTERRUPT_CONFIG_RISING  GPIOTE_CONFIG_IN_SENSE_LOTOHI(true)
