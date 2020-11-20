@@ -21,13 +21,20 @@ void gpioInit(void)
   // APP_ERROR_CHECK(err_code);
 
   gpioOutputEnable(GPIO_1_PIN);
+  gpioWrite(GPIO_1_PIN, 0);
   gpioOutputEnable(GPIO_3_PIN);
+  gpioWrite(GPIO_3_PIN, 0);
 }
 
 void gpioOutputEnable(gpioPin_t pin)
 {
   gpioOutput_t outputConfig = NRFX_GPIOTE_CONFIG_OUT_SIMPLE(0);
   nrf_drv_gpiote_out_init(pin, &outputConfig);
+}
+
+void gpioDisable(gpioPin_t pin)
+{
+  nrf_gpio_cfg_input(pin, NRF_GPIO_PIN_NOPULL);
 }
 
 void gpioWrite(gpioPin_t pin, uint8_t value)

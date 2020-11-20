@@ -47,8 +47,6 @@
 #define gpioOutput_t                         nrf_drv_gpiote_out_config_t
 
 #define gpioInput_t                          nrf_drv_gpiote_in_config_t
-// #define gpioOutputEnable(pin, config)          nrf_drv_gpiote_out_init(pin, config)
-// #define gpioOutputEnable(pin)                  nrf_drv_gpiote_out_init(pin, NRFX_GPIOTE_CONFIG_OUT_SIMPLE(0))
 #define gpioInputEnable(pin, config, handler)  nrf_drv_gpiote_in_init(pin, config, handler)
 #define gpioInterruptEnable(pin)             nrf_drv_gpiote_in_event_enable(pin, true)
 #define gpioInterruptDisable(pin)            nrf_drv_gpiote_in_event_disable(pin)
@@ -56,4 +54,5 @@
 
 void gpioInit(void);
 void gpioOutputEnable(gpioPin_t pin);
+void gpioDisable(gpioPin_t pin);
 void gpioWrite(gpioPin_t pin, uint8_t value);

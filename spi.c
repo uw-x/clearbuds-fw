@@ -59,3 +59,12 @@ void spiInit(void)
 {
   APP_ERROR_CHECK(nrfx_spim_init(&spiInstance, &spiConfig, spiEventHandler, NULL));
 }
+
+void spiDeInit(void)
+{
+  gpioDisable(SPI_SCK_PIN);
+  gpioDisable(SPI_MOSI_PIN);
+  gpioDisable(SPI_MISO_PIN);
+  gpioDisable(SPI_CS_PIN);
+  nrfx_spim_uninit(&spiInstance);
+}

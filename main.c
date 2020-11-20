@@ -85,9 +85,12 @@ void powerEnterSleepMode(void)
   gpioOutputEnable(MIC_EN_PIN);
   gpioWrite(MIC_EN_PIN, 0);
   gpioOutputEnable(ACCEL_EN_PIN);
-  gpioWrite(MIC_EN_PIN, 0);
+  gpioWrite(ACCEL_EN_PIN, 0);
   gpioOutputEnable(FLASH_EN_PIN);
-  gpioWrite(MIC_EN_PIN, 0);
+  gpioWrite(FLASH_EN_PIN, 0);
+
+  spiDeInit();
+  delayMs(1);
 
   // Prepare wakeup buttons.
   err_code = bsp_btn_ble_sleep_mode_prepare();
@@ -195,9 +198,6 @@ static void powerInit(void)
   err_code = nrf_pwr_mgmt_init();
   APP_ERROR_CHECK(err_code);
   sd_power_dcdc_mode_set(true);
-
-  gpioOutputEnable(FLASH_EN_PIN);
-  gpioWrite(MIC_EN_PIN, 0);
 }
 
 static void idle(void)
@@ -215,14 +215,20 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("%08d [shio] booting...\n", systemTimeGetMs());
 
   timersInit();
+
   gpioInit();
+  gpioOutputEnable(FLASH_EN_PIN);
+  gpioWrite(FLASH_EN_PIN, 0);
+
   eventQueueInit();
   buttons_leds_init();
 
   audioInit();
+
   spiInit();
-  accelInit();
-  accelGenericInterruptEnable(&accelInterrupt1);
+  // accelInit();
+  // accelGenericInterruptEnable(&accelInterrupt1);
+
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
 
