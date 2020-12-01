@@ -488,12 +488,12 @@ uint32_t radio_notification_init(uint32_t irq_priority, uint8_t notification_typ
 }
 
 // PUBLIC
-#define TX_POWER 0
+#define TX_POWER 4
 //(accepted values are -40, -20, -16, -12, -8, -4, 0, and 4 dBm)
 void bleAdvertisingStart()
 {
-  // ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, TX_POWER);
-  ret_code_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+  ret_code_t err_code = sd_ble_gap_tx_power_set(BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, TX_POWER);
+  err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
   APP_ERROR_CHECK(err_code);
 }
 

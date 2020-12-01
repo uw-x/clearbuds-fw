@@ -217,8 +217,6 @@ static void shioInit(void)
   timersInit();
 
   gpioInit();
-  gpioOutputEnable(FLASH_EN_PIN);
-  gpioWrite(FLASH_EN_PIN, 0);
 
   eventQueueInit();
   buttons_leds_init();
@@ -231,6 +229,8 @@ static void shioInit(void)
 
   APP_ERROR_CHECK(nrf_drv_clock_init());
   powerInit();
+  gpioOutputEnable(FLASH_EN_PIN);
+  gpioWrite(FLASH_EN_PIN, 0);
 
   bleInit();
   timeSyncInit();
