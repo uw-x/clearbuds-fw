@@ -62,6 +62,7 @@ static uint8_t ringBuffer[RING_BUFFER_SIZE] = {0};
 static uint16_t ringBufferHead = 0;
 static uint16_t ringBufferTail = 0;
 static int ringBufferBytesUsed = 0;
+static uint16_t sequenceNumber = 0;
 
 static void send(void);
 
@@ -530,8 +531,11 @@ static void send(void)
     sending = true;
     if (ringBufferBytesUsed <= length) { break; }
 
-    for (int i = 0; i < length; i++) {
-      bleCusPacket[i] = ringBuffer[(ringBufferHead + i) % RING_BUFFER_SIZE];
+    bleCusPacket[0] = (uint8_t) (sequenceNumber >> 8) & 0xFF;
+    bleCusPacket[1] = (uint8_t) (sequenceNumber & 0xFF);
+
+    for (int i = 2; i < length; i++) {
+      bleCusPacket[i] = ringBuffer[(ringBufferHead + (i-2)) % RING_BUFFER_SIZE];
     }
 
     transmitDone = ble_cus_transmit(&m_cus, bleCusPacket, length);
@@ -539,6 +543,7 @@ static void send(void)
     if (transmitDone) {
       ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
       ringBufferBytesUsed -= length;
+      sequenceNumber++;
     }
   }
 
@@ -564,4 +569,10 @@ bool bleBufferHasSpace(uint16_t length)
 uint32_t bleGetRingBufferBytesAvailable(void)
 {
   return (RING_BUFFER_SIZE - ringBufferBytesUsed);
+}
+
+void blePushSequenceNumber(void)
+{
+  // (sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)/maxAttMtuBytes
+  sequenceNumber += 3;
 }

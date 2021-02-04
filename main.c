@@ -272,6 +272,7 @@ static void processQueue(void)
               bleRetry = true;
             } else {
               NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
+              blePushSequenceNumber();
             }
           }
         }

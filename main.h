@@ -33,7 +33,11 @@
 
 // Audio
 // fs: 50000 Hz
-#define PDM_BUFFER_LENGTH               (1000)
+// Each BLE packet is 182 bytes for iOS. Buffer length of 1092 comes out to 546 bytes...
+// A dropped packet before getting to the BLE layer then corresponds to 3 "missed" packets
+// There can be an error that accumulates here because time sync adds/subtracts one sample
+// to keep mic streams aligned. Will start with this as a first order solution.
+#define PDM_BUFFER_LENGTH               (1092)
 #define PDM_DECIMATION_FACTOR           (4)
 #define PDM_DECIMATION_BUFFER_LENGTH    (PDM_BUFFER_LENGTH / PDM_DECIMATION_FACTOR)
 
