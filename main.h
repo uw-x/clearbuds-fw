@@ -37,7 +37,9 @@
 // A dropped packet before getting to the BLE layer then corresponds to 3 "missed" packets
 // There can be an error that accumulates here because time sync adds/subtracts one sample
 // to keep mic streams aligned. Will start with this as a first order solution.
-#define PDM_BUFFER_LENGTH               (1092)
+// NOTE: We use two bytes for the sequence number, so subtract 12 samples off of PDM_BUFFER_LENGTH
+// (sizeof(uint16_t) * PDM_DECIMATION_BUFFER_LENGTH) / 3 = 180
+#define PDM_BUFFER_LENGTH               (1080)
 #define PDM_DECIMATION_FACTOR           (4)
 #define PDM_DECIMATION_BUFFER_LENGTH    (PDM_BUFFER_LENGTH / PDM_DECIMATION_FACTOR)
 
