@@ -25,7 +25,10 @@
 #include "audio.h"
 
 // #define AUDIO_SYNC_DEBUG
-#define TICKS_THRESHOLD 320
+#define TICKS_THRESHOLD 1024
+
+#define PDM_EDGE_RISING  1
+#define PDM_EDGE_FALLING 0
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
 int16_t pdmBuffer[2][PDM_BUFFER_LENGTH+2] = {0}; // add two to the buffer for sample compensation
@@ -60,8 +63,8 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
   }
 
   if (event->buffer_requested) {
-    // if ticksAhead > 320, increase pdm buffer size to slow down
-    // if ticksAhead < -320, decrease pdm buffer size to catch up
+    // if ticksAhead > TICKS_THRESHOLD, increase pdm buffer size to slow down
+    // if ticksAhead < -TICKS_THRESHOLD, decrease pdm buffer size to catch up
     int bufferTweakAmount = 0;
 
     if (!ts_master() && streamStarted) {
@@ -113,6 +116,11 @@ void audioUpdateTicksAhead(void)
   // (64 clock cycles) / 3.2MHz = 20us
   // 20us on the 16MHz time sync clock is 320 ticks
   // Skip a 50khz sample after 320 ticks have accumulated
+
+  // With an f_pdm of 1MHz:
+  // (64 clock cycles) / 1MHz = 64us
+  // 64us on the 16MHz time sync clock is 1024 ticks
+  // Skip a 15.625khz sample after 1024 ticks have accumulated
 
   static bool biasInitialized     = false;
   static uint64_t systemTimeBias  = 0;
@@ -188,6 +196,8 @@ uint32_t audioGetPdmStartTaskAddress(void)
   return nrfx_pdm_task_address_get(NRF_PDM_TASK_START);
 }
 
+
+
 void audioInit(void)
 {
   nrfx_err_t errorStatus;
@@ -200,12 +210,22 @@ void audioInit(void)
   // Setup PDM
   nrfx_pdm_config_t pdmConfig = {
     .mode               = (nrf_pdm_mode_t)NRFX_PDM_CONFIG_MODE,
-    .edge               = (nrf_pdm_edge_t)NRFX_PDM_CONFIG_EDGE,
+    .edge               = (nrf_pdm_edge_t)PDM_EDGE_FALLING,
     .pin_clk            = PDM_CLK_PIN,
     .pin_din            = PDM_DATA_PIN,
-    .clock_freq         = (nrf_pdm_freq_t) 0x19000000, // DIV10: 0x19000000 -> CLK: 3.200 MHz -> SR: 50000 Hz
-    .gain_l             = 0x3C, // 10dB gain
-    .gain_r             = 0x3C, // 10dB gain
+
+    // DIV32: 0x08000000 -> CLK: 1.000 MHz -> SR: 15625 Hz
+    // DIV31: 0x08400000 -> CLK: 1.032 MHz -> SR: 16125 Hz
+    // DIV30: 0x08800000 -> CLK: 1.067 MHz -> SR: 16667 Hz
+    // DIV25: 0x0A000000 -> CLK: 1.280 MHz -> SR: 20000 Hz
+    // DIV16: 0x10000000 -> CLK: 2.000 MHz -> SR: 31250 Hz
+    // DIV12: 0x15000000 -> CLK: 2.667 MHz -> SR: 41667 Hz
+    // DIV10: 0x19000000 -> CLK: 3.200 MHz -> SR: 50000 Hz
+    // DIV08: 0x20000000 -> CLK: 4.000 MHz -> SR: 62500 Hz
+
+    .clock_freq         = (nrf_pdm_freq_t) 0x08000000,
+    .gain_l             = 0x2e, // 3dB gain
+    .gain_r             = 0x2e, // 3dB gain
     .interrupt_priority = NRFX_PDM_CONFIG_IRQ_PRIORITY
   };
 
