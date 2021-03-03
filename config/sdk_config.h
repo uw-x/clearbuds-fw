@@ -11715,7 +11715,7 @@
 // <1=> Left rising
 
 #ifndef NRFX_PDM_CONFIG_EDGE
-#define NRFX_PDM_CONFIG_EDGE 1
+#define NRFX_PDM_CONFIG_EDGE 0
 #endif
 
 // <o> NRFX_PDM_CONFIG_CLOCK_FREQ  - Clock frequency
