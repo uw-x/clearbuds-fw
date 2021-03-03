@@ -32,15 +32,13 @@
 #define FLASH_READ_BUFFER_SIZE 512
 
 // Audio
-// fs: 50000 Hz
-// Each BLE packet is 182 bytes for iOS. Buffer length of 1092 comes out to 546 bytes...
-// A dropped packet before getting to the BLE layer then corresponds to 3 "missed" packets
-// There can be an error that accumulates here because time sync adds/subtracts one sample
-// to keep mic streams aligned. Will start with this as a first order solution.
-// NOTE: We use two bytes for the sequence number, so subtract 12 samples off of PDM_BUFFER_LENGTH
+// Each BLE packet is 182 bytes for iOS. 2 bytes are for the sequence number.
+// 180 bytes remaining for audio data. A dropped pdm buffer before getting to the BLE layer
+// needs to correspond to 3 "missed" packets so the phone can correctly fill in 3 packets
+// and keep the mic streams aligned.
 // (sizeof(uint16_t) * PDM_DECIMATION_BUFFER_LENGTH) / 3 = 180
-#define PDM_BUFFER_LENGTH               (1080)
-#define PDM_DECIMATION_FACTOR           (4)
+#define PDM_BUFFER_LENGTH               (270)
+#define PDM_DECIMATION_FACTOR           (1)
 #define PDM_DECIMATION_BUFFER_LENGTH    (PDM_BUFFER_LENGTH / PDM_DECIMATION_FACTOR)
 
 // Buttons and LED
