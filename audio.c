@@ -57,8 +57,8 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
 
   if (event->buffer_released) {
     gpioWrite(GPIO_3_PIN, 1);
-    gpioWrite(GPIO_3_PIN, 0);
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
+    gpioWrite(GPIO_3_PIN, 0);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
   }
 
@@ -81,11 +81,13 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
           bufferTweakAmount = 1;
           samplesCompensated++;
         }
+        // think there needs to be some code here
       } else if (samplesCompensated < 0) {
         if (ticksAhead < TICKS_THRESHOLD * (samplesCompensated - 1)) {
           bufferTweakAmount = -1;
           samplesCompensated--;
         }
+        // think there needs to be some code here
       }
 
       if (bufferTweakAmount != 0) {
@@ -112,12 +114,12 @@ void audioUpdateTicksAhead(void)
   // 64 pdm clockes edges equates to 1 sample of PCM audio data
   // After 64 pdm clock edges a sample needs to be skipped
 
-  // With an f_s of 50kHz and f_pdm of 3.2MHz:
+  // With f_pdm of 3.2MHz:
   // (64 clock cycles) / 3.2MHz = 20us
   // 20us on the 16MHz time sync clock is 320 ticks
   // Skip a 50khz sample after 320 ticks have accumulated
 
-  // With an f_pdm of 1MHz:
+  // With f_pdm of 1MHz:
   // (64 clock cycles) / 1MHz = 64us
   // 64us on the 16MHz time sync clock is 1024 ticks
   // Skip a 15.625khz sample after 1024 ticks have accumulated
@@ -195,8 +197,6 @@ uint32_t audioGetPdmStartTaskAddress(void)
 {
   return nrfx_pdm_task_address_get(NRF_PDM_TASK_START);
 }
-
-
 
 void audioInit(void)
 {
