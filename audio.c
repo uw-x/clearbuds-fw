@@ -24,7 +24,7 @@
 #include "main.h"
 #include "audio.h"
 
-#define AUDIO_SYNC_DEBUG
+// #define AUDIO_SYNC_DEBUG
 
 #define TICKS_THRESHOLD 512
 #define PDM_EDGE_RISING  1
