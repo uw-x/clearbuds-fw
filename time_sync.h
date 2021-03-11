@@ -48,7 +48,7 @@
 
 #define TS_SOC_OBSERVER_PRIO 0
 
-#define TIME_SYNC_TIMER_MAX_VAL (1600000)
+#define TIME_SYNC_TIMER_MAX_VAL (800000)
 #define TIME_SYNC_RTC_MAX_VAL   (0xFFFFFF)
 
 /**@brief Data handler type. */

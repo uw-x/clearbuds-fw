@@ -251,10 +251,20 @@ static void processQueue(void)
         break;
 
       case EVENT_AUDIO_STREAM_START:
-        nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
+      {
+        // DEPRECATED: Before there was an explicit characteristic to start the mics synchronously,
+        // and then start the BLE notifications separately. After some thought, it would be much
+        // simpler to tie the mic startup with the BLE notification startup which will alleviate
+        // the need to launch another part of code synchronously.
+        // NRF_TIMER3->TASKS_CAPTURE[3] = 1;
+        // uint32_t timer3 = NRF_TIMER3->CC[3];
+        // NRF_LOG_RAW_INFO("%08d [audio] PPI ENABLE %u %u syncTime:%u\n", systemTimeGetMs(), NRF_TIMER3->CC[0], timer3, ts_timestamp_get_ticks_u64(6));
+        // nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
         break;
+      }
 
       case EVENT_AUDIO_MIC_DATA_READY:
+      {
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
 
         // PDM started via programmable peripheral interconnect (PPI)
@@ -277,11 +287,15 @@ static void processQueue(void)
           }
         }
         break;
+      }
 
       case EVENT_BLE_DATA_STREAM_START:
         NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
+
+        // Enable PPI to launch mics
+        nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
         bleMicStreamRequested = true;
-        audioStart();
+        gpioWrite(GPIO_1_PIN, 1);
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:

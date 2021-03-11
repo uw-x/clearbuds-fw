@@ -25,8 +25,8 @@
 #include "audio.h"
 
 // #define AUDIO_SYNC_DEBUG
-#define TICKS_THRESHOLD 1024
 
+#define TICKS_THRESHOLD 1024
 #define PDM_EDGE_RISING  1
 #define PDM_EDGE_FALLING 0
 
@@ -37,11 +37,16 @@ static int pdmBufferIndex               = 0;
 static int64_t samplesCompensated       = 0;
 static int64_t ticksAhead               = 0;
 static bool streamStarted = false;
+uint16_t fakeData = 0;
 
 static void decimate(int16_t* outputBuffer, int16_t* inputBuffer, uint8_t decimationFactor)
 {
   for (int i = 0; i < PDM_DECIMATION_BUFFER_LENGTH; i++) {
+#ifdef AUDIO_SYNC_DEBUG
+    outputBuffer[i] = fakeData++;
+#else
     outputBuffer[i] = inputBuffer[i*decimationFactor];
+#endif
   }
 }
 
@@ -56,9 +61,8 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
   }
 
   if (event->buffer_released) {
-    gpioWrite(GPIO_3_PIN, 1);
+    gpioWrite(GPIO_3_PIN, (pdmBufferIndex == 0) ? 1 : 0);
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
-    gpioWrite(GPIO_3_PIN, 0);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
   }
 
@@ -80,14 +84,18 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
         if (ticksAhead > TICKS_THRESHOLD * (samplesCompensated + 1)) {
           bufferTweakAmount = 1;
           samplesCompensated++;
-        }
-        // think there needs to be some code here
-      } else if (samplesCompensated < 0) {
-        if (ticksAhead < TICKS_THRESHOLD * (samplesCompensated - 1)) {
+        } else if (ticksAhead < TICKS_THRESHOLD * (samplesCompensated - 1)) {
           bufferTweakAmount = -1;
           samplesCompensated--;
         }
-        // think there needs to be some code here
+      } else if (samplesCompensated < 0) {
+        if (ticksAhead < -TICKS_THRESHOLD * abs((samplesCompensated - 1))) {
+          bufferTweakAmount = -1;
+          samplesCompensated--;
+        } else if (ticksAhead > -TICKS_THRESHOLD * abs((samplesCompensated + 1))) {
+          bufferTweakAmount = 1;
+          samplesCompensated++;
+        }
       }
 
       if (bufferTweakAmount != 0) {
@@ -176,7 +184,7 @@ void audioUpdateTicksAhead(void)
 #endif
     }
 
-#ifdef AUDIO_SYNC_DEBUG
+#ifdef AUDIO_SYNC_DEBUG_2
     NRF_LOG_RAW_INFO("%08d [audio] p:%u l:%u o:%d t:%d\n",
       systemTimeGetMs(), relativeSyncTime, relativeSystemTime, timerOffset, ticksAhead);
 #endif

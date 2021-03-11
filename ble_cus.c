@@ -7,6 +7,7 @@
 #include "nrf_log.h"
 #include "event.h"
 #include "timers.h"
+#include "gpio.h"
 
 static void on_connect(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
 {
