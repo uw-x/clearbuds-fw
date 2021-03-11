@@ -24,9 +24,9 @@
 #include "main.h"
 #include "audio.h"
 
-// #define AUDIO_SYNC_DEBUG
+#define AUDIO_SYNC_DEBUG
 
-#define TICKS_THRESHOLD 1024
+#define TICKS_THRESHOLD 512
 #define PDM_EDGE_RISING  1
 #define PDM_EDGE_FALLING 0
 
@@ -42,11 +42,16 @@ uint16_t fakeData = 0;
 static void decimate(int16_t* outputBuffer, int16_t* inputBuffer, uint8_t decimationFactor)
 {
   for (int i = 0; i < PDM_DECIMATION_BUFFER_LENGTH; i++) {
+
+    if (fakeData < 32768) {
+      outputBuffer[i] = fakeData++;
+    } else {
 #ifdef AUDIO_SYNC_DEBUG
-    outputBuffer[i] = fakeData++;
+      outputBuffer[i] = fakeData++;
 #else
     outputBuffer[i] = inputBuffer[i*decimationFactor];
 #endif
+    }
   }
 }
 
@@ -131,6 +136,11 @@ void audioUpdateTicksAhead(void)
   // (64 clock cycles) / 1MHz = 64us
   // 64us on the 16MHz time sync clock is 1024 ticks
   // Skip a 15.625khz sample after 1024 ticks have accumulated
+
+  // With f_pdm of 1MHz:
+  // (64 clock cycles) / 2MHz = 32us
+  // 32us on the 16MHz time sync clock is 512 ticks
+  // Skip a 31250khz sample after 512 ticks have accumulated
 
   static bool biasInitialized     = false;
   static uint64_t systemTimeBias  = 0;
@@ -231,7 +241,7 @@ void audioInit(void)
     // DIV10: 0x19000000 -> CLK: 3.200 MHz -> SR: 50000 Hz
     // DIV08: 0x20000000 -> CLK: 4.000 MHz -> SR: 62500 Hz
 
-    .clock_freq         = (nrf_pdm_freq_t) 0x08000000,
+    .clock_freq         = (nrf_pdm_freq_t) 0x10000000,
     .gain_l             = 0x2e, // 3dB gain
     .gain_r             = 0x2e, // 3dB gain
     .interrupt_priority = NRFX_PDM_CONFIG_IRQ_PRIORITY

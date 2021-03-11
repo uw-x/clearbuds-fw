@@ -37,8 +37,8 @@
 // needs to correspond to 3 "missed" packets so the phone can correctly fill in 3 packets
 // and keep the mic streams aligned.
 // (sizeof(uint16_t) * PDM_DECIMATION_BUFFER_LENGTH) / 3 = 180
-#define PDM_BUFFER_LENGTH               (270)
-#define PDM_DECIMATION_FACTOR           (1)
+#define PDM_BUFFER_LENGTH               (540)
+#define PDM_DECIMATION_FACTOR           (2)
 #define PDM_DECIMATION_BUFFER_LENGTH    (PDM_BUFFER_LENGTH / PDM_DECIMATION_FACTOR)
 
 // Buttons and LED
