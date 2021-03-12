@@ -541,8 +541,8 @@ static void send(void)
     transmitDone = ble_cus_transmit(&m_cus, bleCusPacket, length);
 
     if (transmitDone) {
-      ringBufferHead = (ringBufferHead + length) % RING_BUFFER_SIZE;
-      ringBufferBytesUsed -= length;
+      ringBufferHead = (ringBufferHead + (length-2)) % RING_BUFFER_SIZE;
+      ringBufferBytesUsed -= (length-2);
       sequenceNumber++;
     }
   }
