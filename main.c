@@ -290,24 +290,15 @@ static void processQueue(void)
       }
 
       case EVENT_BLE_DATA_STREAM_START:
+        NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
+
         NRF_TIMER3->TASKS_CAPTURE[3] = 1;
         uint32_t timer3 = NRF_TIMER3->CC[3];
         NRF_LOG_RAW_INFO("%08d [main] PPI ENABLE %u\n", systemTimeGetMs(), timer3);
+        nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
 
-        // Arm PPI once timer is within this range to prevent pdm from launching
-        // if one timer is near this border and the other isn't.
-        // e.g. shio1 timer3 = 350000 and shio2 timer3 = 450000
-        // shio1 will fire pdm 50000 ticks later and shio2 will wait until the next wraparound
-        if ((timer3 > TIME_SYNC_TIMER_MAX_VAL_DIV2) && (timer3 < 3*TIME_SYNC_TIMER_MAX_VAL_DIV4)) {
-           // Enable PPI to launch mics
-          nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
-          bleMicStreamRequested = true;
-          gpioWrite(GPIO_1_PIN, 1);
-          NRF_LOG_RAW_INFO("%08d [ble] stream start\n", systemTimeGetMs());
-        } else {
-          eventQueuePush(EVENT_BLE_DATA_STREAM_START);
-        }
-
+        bleMicStreamRequested = true;
+        gpioWrite(GPIO_1_PIN, 1);
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
