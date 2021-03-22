@@ -529,7 +529,7 @@ static void send(void)
 
   while(transmitDone && (sending == false)) {
     sending = true;
-    if (ringBufferBytesUsed <= length) { break; }
+    if (ringBufferBytesUsed < (length - 2)) { break; }
 
     bleCusPacket[0] = (uint8_t) (sequenceNumber >> 8) & 0xFF;
     bleCusPacket[1] = (uint8_t) (sequenceNumber & 0xFF);

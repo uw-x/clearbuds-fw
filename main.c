@@ -55,6 +55,8 @@ static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
 static bool bleMicStreamRequested = false;
 
+static uint8_t metadata[180] = { 0 };
+
 accelGenericInterrupt_t accelInterrupt1 = {
   .pin = ACCEL_INT1,
   .source = ACCEL_INT_SOURCE_GENERIC1,
@@ -294,8 +296,15 @@ static void processQueue(void)
 
         NRF_TIMER3->TASKS_CAPTURE[3] = 1;
         uint32_t timer3 = NRF_TIMER3->CC[3];
-        NRF_LOG_RAW_INFO("%08d [main] PPI ENABLE %u\n", systemTimeGetMs(), timer3);
         nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
+        NRF_LOG_RAW_INFO("%08d [main] PPI ENABLE %u\n", systemTimeGetMs(), timer3);
+
+        metadata[0] = (timer3 >> 24) & 0xFF;
+        metadata[1] = (timer3 >> 16) & 0xFF;
+        metadata[2] = (timer3 >> 8) & 0xFF;
+        metadata[3] = timer3 & 0xFF;
+
+        bleSendData(metadata, 180);
 
         bleMicStreamRequested = true;
         gpioWrite(GPIO_1_PIN, 1);
