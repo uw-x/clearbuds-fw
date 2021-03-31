@@ -277,17 +277,21 @@ static void processQueue(void)
         }
 
         if (audioStreamStarted() && bleMicStreamRequested) {
-          if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH) && !bleRetry) {
+          // If bleRetry is still true by the time we're here, we've overwritten the previous packet, notify by pushing sequence number
+          if (bleRetry) {
+            NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
+            blePushSequenceNumber();
+          }
+
+          if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
+            bleRetry = false;
           } else {
-            if (!bleRetry) {
-              bleRetry = true;
-            } else {
-              NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
-              blePushSequenceNumber();
-            }
+            // No space, attempt to retry
+            bleRetry = true;
           }
         }
+
         break;
       }
 
@@ -323,8 +327,8 @@ static void processQueue(void)
 
       case EVENT_BLE_SEND_DATA_DONE:
         if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)) {
-          bleRetry = false;
           bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
+          bleRetry = false;
         }
         break;
 
