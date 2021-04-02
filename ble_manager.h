@@ -11,3 +11,4 @@ bool bleCanTransmit(void);
 bool bleBufferHasSpace(uint16_t length);
 uint32_t bleGetRingBufferBytesAvailable(void);
 void blePushSequenceNumber(void);
+void send(void);

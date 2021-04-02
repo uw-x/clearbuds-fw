@@ -329,6 +329,8 @@ static void processQueue(void)
         if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)) {
           bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
           bleRetry = false;
+        } else {
+          send();
         }
         break;
 
