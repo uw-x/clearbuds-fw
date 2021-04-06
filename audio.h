@@ -9,3 +9,4 @@ void audioUpdateTicksAhead(void);
 bool audioStreamStarted(void);
 void audioSetStreamStarted(bool);
 uint32_t audioGetPdmStartTaskAddress(void);
+uint32_t audioGetPdmBufferCount(void);

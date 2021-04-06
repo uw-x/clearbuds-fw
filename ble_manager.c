@@ -57,7 +57,7 @@ static ble_uuid_t m_adv_uuids[] =                                               
   {CUSTOM_SERVICE_UUID, BLE_UUID_TYPE_VENDOR_BEGIN}
 };
 
-#define RING_BUFFER_SIZE 2048
+#define RING_BUFFER_SIZE 3000
 static uint8_t ringBuffer[RING_BUFFER_SIZE] = {0};
 static uint16_t ringBufferHead = 0;
 static uint16_t ringBufferTail = 0;
@@ -186,12 +186,8 @@ static void on_cus_evt(ble_cus_t * p_cus_service, ble_cus_evt_t * p_evt)
 
     case BLE_CUS_EVT_TRANSFER_1KB:
     {
-      if (((p_evt->bytes_transfered_cnt / 1024) % 10) == 0) {
-        uint32_t interval = systemTimeGetMs() - lastTransferTimeMs;
-        uint32_t throughput = (10240 * 1000) / interval;
-        NRF_LOG_RAW_INFO("%08d [ble] sent %ukB %dkB/sec\n",
-          systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024), throughput/1024);
-        lastTransferTimeMs = systemTimeGetMs();
+      if (((p_evt->bytes_transfered_cnt / 1024) % 20) == 0) {
+        NRF_LOG_RAW_INFO("%08d [ble] sent %ukB\n", systemTimeGetMs(), (p_evt->bytes_transfered_cnt / 1024));
       }
       break;
     }

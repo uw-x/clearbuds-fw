@@ -1,4 +1,9 @@
 // main.h
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <nrfx.h>
 
 // BLE
 #define DEVICE_NAME                     "shio"                                  /**< Name of device. Will be included in the advertising data. */
