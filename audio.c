@@ -31,13 +31,13 @@
 #define PDM_EDGE_FALLING 0
 
 int16_t releasedPdmBuffer[PDM_DECIMATION_BUFFER_LENGTH] = {0};
-int16_t pdmBuffer[2][PDM_BUFFER_LENGTH+2] = {0}; // add two to the buffer for sample compensation
-static bool fftInputBufferReady         = false;
+int16_t pdmBuffer[2][PDM_BUFFER_LENGTH+2] = {0}; // add two to the buffer for sample compensationReady         = false;
 static int pdmBufferIndex               = 0;
 static int64_t samplesCompensated       = 0;
 static int64_t ticksAhead               = 0;
 static bool streamStarted = false;
 uint16_t fakeData = 0;
+uint32_t pdmBufferCount = 0;
 
 static void decimate(int16_t* outputBuffer, int16_t* inputBuffer, uint8_t decimationFactor)
 {
@@ -66,6 +66,7 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
   }
 
   if (event->buffer_released) {
+    pdmBufferCount++;
     gpioWrite(GPIO_3_PIN, (pdmBufferIndex == 0) ? 1 : 0);
     decimate(releasedPdmBuffer, event->buffer_released, PDM_DECIMATION_FACTOR);
     eventQueuePush(EVENT_AUDIO_MIC_DATA_READY);
@@ -120,6 +121,11 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
 int16_t* audioGetMicData(void)
 {
   return releasedPdmBuffer;
+}
+
+uint32_t audioGetPdmBufferCount(void)
+{
+  return pdmBufferCount;
 }
 
 void audioUpdateTicksAhead(void)

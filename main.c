@@ -54,6 +54,7 @@
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
 static bool bleMicStreamRequested = false;
+static uint32_t expectedBufferCount = 0;
 
 static uint8_t metadata[180] = { 0 };
 
@@ -269,6 +270,14 @@ static void processQueue(void)
       {
         memcpy(micData, audioGetMicData(), sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
 
+        // Sometimes a PDM buffer gets thrown into the ether?
+        uint32_t actualBufferCount = audioGetPdmBufferCount();
+        if (++expectedBufferCount != actualBufferCount) {
+          NRF_LOG_RAW_INFO("%08d [audio] expected(%d) != actual(%d)\n", systemTimeGetMs(), expectedBufferCount, actualBufferCount);
+          for (int i = 0; i < (actualBufferCount - expectedBufferCount); i++) { blePushSequenceNumber(); }
+          expectedBufferCount = actualBufferCount;
+        }
+
         // PDM started via programmable peripheral interconnect (PPI)
         // Disable PPI so that PDM doesn't restart, and set audioStreamStarted to true
         if (!audioStreamStarted()) {
@@ -277,18 +286,12 @@ static void processQueue(void)
         }
 
         if (audioStreamStarted() && bleMicStreamRequested) {
-          // If bleRetry is still true by the time we're here, we've overwritten the previous packet, notify by pushing sequence number
-          if (bleRetry) {
-            NRF_LOG_RAW_INFO("%08d [ble] dropped packet\n", systemTimeGetMs());
-            blePushSequenceNumber();
-          }
-
           if (bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)) {
             bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
-            bleRetry = false;
           } else {
-            // No space, attempt to retry
-            bleRetry = true;
+            // No space, drop this data
+            NRF_LOG_RAW_INFO("%08d [ble] dropped 270 samples\n", systemTimeGetMs());
+            blePushSequenceNumber();
           }
         }
 
@@ -326,12 +329,8 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_SEND_DATA_DONE:
-        if (bleRetry && bleBufferHasSpace(sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH)) {
-          bleSendData((uint8_t *) micData, sizeof(int16_t) * PDM_DECIMATION_BUFFER_LENGTH);
-          bleRetry = false;
-        } else {
-          send();
-        }
+        // BLE just finished, attempt to fill in more data
+        send();
         break;
 
       case EVENT_BLE_IDLE:
