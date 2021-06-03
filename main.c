@@ -51,11 +51,14 @@
 #include "nrf_ppi.h"
 #include "nrf_timer.h"
 
+APP_TIMER_DEF(resetTimer);
+
 static int16_t micData[PDM_DECIMATION_BUFFER_LENGTH];
 static bool bleRetry = false;
 static bool bleMicStreamRequested = false;
 static uint32_t expectedBufferCount = 0;
 
+static uint8_t metadataIndex = 0;
 static uint8_t metadata[180] = { 0 };
 
 accelGenericInterrupt_t accelInterrupt1 = {
@@ -73,6 +76,11 @@ accelGenericInterrupt_t accelInterrupt1 = {
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
   app_error_handler(DEAD_BEEF, line_num, p_file_name);
+}
+
+static void resetTimerCallback(void * p_context)
+{
+  NVIC_SystemReset();
 }
 
 void powerEnterSleepMode(void)
@@ -218,6 +226,9 @@ static void shioInit(void)
   NRF_LOG_RAW_INFO("%08d [shio] booting...\n", systemTimeGetMs());
 
   timersInit();
+  ret_code_t err_code;
+  err_code = app_timer_create(&resetTimer, APP_TIMER_MODE_SINGLE_SHOT, resetTimerCallback);
+  APP_ERROR_CHECK(err_code);
 
   gpioInit();
 
@@ -263,6 +274,27 @@ static void processQueue(void)
         // uint32_t timer3 = NRF_TIMER3->CC[3];
         // NRF_LOG_RAW_INFO("%08d [audio] PPI ENABLE %u %u syncTime:%u\n", systemTimeGetMs(), NRF_TIMER3->CC[0], timer3, ts_timestamp_get_ticks_u64(6));
         // nrf_ppi_channel_enable(NRF_PPI_CHANNEL5);
+        break;
+      }
+
+      case EVENT_AUDIO_STREAM_STOP:
+      {
+        NRF_LOG_RAW_INFO("%08d [audio] stream stop\n", systemTimeGetMs());
+        bleMicStreamRequested = false;
+        audioStop();
+
+        uint32_t timestamp = systemTimeGetMs();
+        metadata[metadataIndex++ % 180]  = (timestamp >> 24) & 0xFF;
+        metadata[metadataIndex++ % 180] = (timestamp >> 16) & 0xFF;
+        metadata[metadataIndex++ % 180] = (timestamp >> 8) & 0xFF;
+        metadata[metadataIndex++ % 180] = timestamp & 0xFF;
+
+        metadata[metadataIndex++ % 180] = 0x01;
+        metadata[metadataIndex++ % 180] = 0x02;
+        metadata[metadataIndex++ % 180] = 0x03;
+        metadata[metadataIndex++ % 180] = 0x04;
+
+        bleSendData(metadata, 180);
         break;
       }
 
@@ -318,11 +350,11 @@ static void processQueue(void)
         break;
 
       case EVENT_BLE_DATA_STREAM_STOP:
-        NRF_LOG_RAW_INFO("%08d [ble] stream stop\n", systemTimeGetMs());
-        bleMicStreamRequested = false;
-        audioStop();
+      {
         NVIC_SystemReset();
+        // app_timer_start(resetTimer, APP_TIMER_TICKS(2000), NULL);
         break;
+      }
 
       case EVENT_BLE_RADIO_START:
         // Event that fires whenever the radio starts up
@@ -357,6 +389,16 @@ static void processQueue(void)
 
       case EVENT_TIMERS_ONE_SECOND_ELAPSED:
         break;
+
+      case EVENT_METADATA_SAVE_TIMESTAMP:
+      {
+        uint32_t timestamp = systemTimeGetMs();
+        metadata[metadataIndex++ % 180]  = (timestamp >> 24) & 0xFF;
+        metadata[metadataIndex++ % 180] = (timestamp >> 16) & 0xFF;
+        metadata[metadataIndex++ % 180] = (timestamp >> 8) & 0xFF;
+        metadata[metadataIndex++ % 180] = timestamp & 0xFF;
+        break;
+      }
 
       default:
         NRF_LOG_RAW_INFO("%08d [main] unhandled event:%d\n", systemTimeGetMs(), eventQueueFront());

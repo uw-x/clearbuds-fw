@@ -25,6 +25,7 @@
 #include "audio.h"
 
 // #define AUDIO_SYNC_DEBUG
+#define TIME_SYNC_DISABLED 1
 
 #define TICKS_THRESHOLD 512
 #define PDM_EDGE_RISING  1
@@ -107,8 +108,15 @@ static void pdmEventHandler(nrfx_pdm_evt_t *event)
       if (bufferTweakAmount != 0) {
         NRF_LOG_RAW_INFO("%08d [audio] samplesCompensated:%d bufferTweakAmount:%d\n",
           systemTimeGetMs(), samplesCompensated, bufferTweakAmount);
+
+#if TIME_SYNC_DISABLED
+        bufferTweakAmount = 0;
+        eventQueuePush(EVENT_METADATA_SAVE_TIMESTAMP);
+#endif
       }
     }
+
+
 
     pdmBufferIndex = (pdmBufferIndex == 0) ? 1 : 0;
     errorStatus = nrfx_pdm_buffer_set(pdmBuffer[pdmBufferIndex], PDM_BUFFER_LENGTH + bufferTweakAmount);

@@ -59,6 +59,8 @@ static void on_write(ble_cus_t * p_cus, ble_evt_t const * p_ble_evt)
       eventQueuePush(EVENT_TIMESYNC_SLAVE_ENABLE);
     } else if (p_evt_write->data[0] == 0xA5) {
       eventQueuePush(EVENT_AUDIO_STREAM_START);
+    } else if (p_evt_write->data[0] == 0xEF) {
+      eventQueuePush(EVENT_AUDIO_STREAM_STOP);
     }
   }
 
