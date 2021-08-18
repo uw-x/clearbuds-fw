@@ -25,7 +25,7 @@
 #include "audio.h"
 
 // #define AUDIO_SYNC_DEBUG
-#define TIME_SYNC_DISABLED 1
+#define TIME_SYNC_DISABLED 0
 
 #define TICKS_THRESHOLD 512
 #define PDM_EDGE_RISING  1
