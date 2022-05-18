@@ -10,8 +10,8 @@ our network has a runtime of 21.4 ms on an accompanying mobile phone. In-the-wil
 -  Download the latest SDK
 -  Unzip the .zip to a high level directory (e.g. C:\ on Windows, or home directory on linux/mac)
 2. Install toolchains
--  Install gcc-arm-none-eabi using 'brew install gcc-arm-none-eabi'
--  Update GNU_INSTALL_ROOT (path of your gcc) inside Makefile.posix of the unzipped SDK. If you installed using brew, the path should be /usr/local/Cellar/gcc-arm-none-eabi/20180627/bin/
+-  Install gcc-arm-none-eabi using 'brew install gcc-arm-none-eabi'. If using a Linux environment, please refer to this link for help with installation: https://askubuntu.com/questions/1243252/how-to-install-arm-none-eabi-gdb-on-ubuntu-20-04-lts-focal-fossa
+-  Update GNU_INSTALL_ROOT (path of your gcc) inside Makefile.posix (located at SDK/components/toolchain/gcc/) of the unzipped SDK. If you installed using brew, the path should be /usr/local/Cellar/gcc-arm-none-eabi/20180627/bin/
 -  Install nordic command line tools from here: https://www.nordicsemi.com/Software-and-tools/Development-Tools/nRF-Command-Line-Tools/Download. Unzip, and move the nrfjprog directory to /usr/local/. Finally, add this to your PATH inside .bash_profile with this change: export PATH=/usr/local/bin:/usr/local/sbin:/usr/local/nrfjprog:$PATH
 -  Validate that this worked by opening a new terminal and typing 'nrfjprog --version' as a sanity check
 3. Clone the repo
