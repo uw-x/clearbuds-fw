@@ -21,3 +21,7 @@ our network has a runtime of 21.4 ms on an accompanying mobile phone. In-the-wil
 -  Run 'make flash' in terminal to build and flash
 
 If you have any trouble installing, feel free to reach out, more details for setting up on a mac can be found here: https://aaroneiche.com/2016/06/01/programming-an-nrf52-on-a-mac/
+
+## License
+This project is under the GNU General Public License v3.0. See the COPYING file for the full license text.
+
